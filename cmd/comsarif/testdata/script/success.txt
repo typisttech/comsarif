@@ -1,0 +1,4 @@
+exec comsarif --audit fixtures/success/audit.json --lock fixtures/success/composer.lock
+cp stdout actual.stdout
+cmp actual.stdout success.stdout
+stderr '^$'

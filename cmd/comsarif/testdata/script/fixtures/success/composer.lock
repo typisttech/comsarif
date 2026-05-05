@@ -1,0 +1,28 @@
+{
+  "packages": [
+    {
+      "name": "vendor/normal",
+      "packages": [
+        {
+          "name": "vendor/ignored",
+          "version": "99.99.99"
+        }
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "vendor/abandoned-no-replacement",
+      "version": "3.0.0"
+    }
+  ],
+  "packages-dev": [
+    {
+      "name": "vendor/ignored",
+      "version": "2.0.0"
+    },
+    {
+      "name": "vendor/abandoned-with-replacement",
+      "version": "4.0.0"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "advisories": {
+    "vendor/normal": [
+      {
+        "advisoryId": "GHSA-normal",
+        "packageName": "vendor/normal",
+        "affectedVersions": "<1.0.1",
+        "title": "Normal vulnerability",
+        "cve": "CVE-2026-0001",
+        "link": "https://example.test/advisories/normal",
+        "reportedAt": "2026-05-06T00:00:00Z",
+        "severity": "high",
+        "composerRepository": "packagist",
+        "sources": [
+          {
+            "name": "FriendsOfPHP",
+            "remoteId": "100"
+          },
+          {
+            "remoteId": "remote-only"
+          }
+        ]
+      }
+    ]
+  },
+  "ignored-advisories": {
+    "vendor/ignored": [
+      {
+        "advisoryId": "GHSA-ignored",
+        "packageName": "vendor/ignored",
+        "affectedVersions": "<2.0.1",
+        "title": "Ignored vulnerability",
+        "severity": "medium",
+        "ignoreReason": "accepted risk"
+      }
+    ]
+  },
+  "abandoned": {
+    "vendor/abandoned-no-replacement": null,
+    "vendor/abandoned-with-replacement": "vendor/replacement"
+  }
+}

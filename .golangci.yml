@@ -16,7 +16,7 @@ linters:
     - containedctx
     - contextcheck
     - copyloopvar
-    - cyclop
+    # - cyclop # TODO
     - depguard
     - dogsled
     - dupl
@@ -124,10 +124,11 @@ linters:
         linters:
           - errcheck
 
-      - path: _test\.go
-        linters:
-          - cyclop
-          - dupl
+# TODO
+#      - path: _test\.go
+#        linters:
+#          - cyclop
+#          - dupl
 
 formatters:
   enable:

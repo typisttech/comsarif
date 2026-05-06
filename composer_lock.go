@@ -3,168 +3,151 @@ package comsarif
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"sort"
-	"unicode"
-	"unicode/utf8"
 )
 
-type composerLockIndex map[string]lockedPackageLocation
-
-type lockedPackageLocation struct {
-	PackageName string
-	Version     string
-	URI         string
-	Region      region
-}
+type regions map[string]region
 
 type region struct {
-	StartLine   int
-	StartColumn int
-	EndLine     int
-	EndColumn   int
+	line        int
+	startColumn int
+	endColumn   int
 }
 
-func parseComposerLock(data []byte, lockURI string) (composerLockIndex, error) {
+func newRegions(r io.Reader) (regions, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
+	}
+
+	// TODO: Find a way to read it in chunks instead of io.ReadAll
+	eol := []byte{'\n'}
+	lineBreaks := make([]int, 0, bytes.Count(data, eol))
+	haystack := bytes.Clone(data)
+	for x, d := bytes.Index(haystack, eol), 0; x > -1; x, d = bytes.Index(haystack, eol), d+x+1 {
+		lineBreaks = append(lineBreaks, x+d)
+		haystack = haystack[x+1:]
+	}
+
 	decoder := json.NewDecoder(bytes.NewReader(data))
-	newlines := newlineOffsets(data)
-
-	if err := expectJSONObjectStart(decoder, "top-level object"); err != nil {
-		return nil, fmt.Errorf("parse composer.lock JSON: %w", err)
+	if err := expectDelim(decoder, '{'); err != nil {
+		return nil, fmt.Errorf("parse composer.lock: %v", err)
 	}
 
-	index := make(composerLockIndex)
+	regs := make(regions)
 	for decoder.More() {
-		key, err := nextObjectKey(decoder, "object key")
+		key, err := nextJSONString(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("parse composer.lock JSON: %w", err)
+			return nil, fmt.Errorf("parse composer.lock: parse top level object key: %v", err)
 		}
-		if err := scanTopLevelLockValue(decoder, data, newlines, lockURI, index, key); err != nil {
-			return nil, err
+
+		switch key {
+		case "packages", "packages-dev":
+			if err = parsePackageArray(decoder, data, lineBreaks, regs); err != nil {
+				return nil, fmt.Errorf("parse composer.lock: parse top level %s array: %v", key, err)
+			}
+		default:
+			if err = skipJSONValue(decoder); err != nil {
+				return nil, fmt.Errorf("parse composer.lock: %v", err)
+			}
 		}
 	}
 
-	if _, err := decoder.Token(); err != nil {
-		return nil, fmt.Errorf("parse composer.lock JSON: %w", err)
+	if err := expectDelim(decoder, '}'); err != nil {
+		return nil, fmt.Errorf("parse composer.lock: %v", err)
 	}
 
-	return index, nil
+	return regs, nil
 }
 
-func scanTopLevelLockValue(decoder *json.Decoder, data []byte, newlines []int, lockURI string, index composerLockIndex, key string) error {
-	if key == "packages" || key == "packages-dev" {
-		return scanLockedPackageArray(decoder, data, newlines, lockURI, index)
-	}
-	if err := skipJSONValue(decoder); err != nil {
-		return fmt.Errorf("parse composer.lock JSON: %w", err)
-	}
-	return nil
-}
-
-func scanLockedPackageArray(decoder *json.Decoder, data []byte, newlines []int, lockURI string, index composerLockIndex) error {
-	if err := expectJSONArrayStart(decoder, "package array"); err != nil {
-		return fmt.Errorf("parse composer.lock JSON: %w", err)
+func parsePackageArray(decoder *json.Decoder, data []byte, newlines []int, regions regions) error {
+	if err := expectDelim(decoder, '['); err != nil {
+		return err
 	}
 
 	for decoder.More() {
-		if err := expectJSONObjectStart(decoder, "package object"); err != nil {
-			return fmt.Errorf("parse composer.lock JSON: %w", err)
+		if err := expectDelim(decoder, '{'); err != nil {
+			return err
 		}
 
-		loc, err := scanLockedPackageObject(decoder, data, newlines, lockURI)
+		pkg, reg, err := locatePackageRegion(decoder, data, newlines)
 		if err != nil {
 			return err
 		}
 
-		if _, ok := index[loc.PackageName]; ok {
-			return fmt.Errorf("duplicate top-level package %q in composer.lock", loc.PackageName)
+		if _, ok := regions[pkg]; ok {
+			return fmt.Errorf("duplicate package %q", pkg)
 		}
-		index[loc.PackageName] = loc
+		regions[pkg] = reg
+
+		if err := expectDelim(decoder, '}'); err != nil {
+			return err
+		}
 	}
 
-	if _, err := decoder.Token(); err != nil {
-		return fmt.Errorf("parse composer.lock JSON: %w", err)
-	}
-
-	return nil
+	return expectDelim(decoder, ']')
 }
 
-func scanLockedPackageObject(decoder *json.Decoder, data []byte, newlines []int, lockURI string) (lockedPackageLocation, error) {
-	state := lockedPackageScanState{}
+func locatePackageRegion(decoder *json.Decoder, data []byte, newlines []int) (string, region, error) {
+	var name string
+	var offset int64
 
 	for decoder.More() {
-		key, err := nextObjectKey(decoder, "package field name")
+		key, err := nextJSONString(decoder)
 		if err != nil {
-			return lockedPackageLocation{}, fmt.Errorf("parse composer.lock JSON: %w", err)
+			return "", region{}, fmt.Errorf("parse package field key: %v", err)
 		}
-		if err := state.scanField(decoder, newlines, key); err != nil {
-			return lockedPackageLocation{}, err
+
+		if key != "name" {
+			if err := skipJSONValue(decoder); err != nil {
+				return "", region{}, err
+			}
+			continue
 		}
-	}
 
-	if _, err := decoder.Token(); err != nil {
-		return lockedPackageLocation{}, fmt.Errorf("parse composer.lock JSON: %w", err)
-	}
-
-	if state.name == "" {
-		return lockedPackageLocation{}, fmt.Errorf("parse composer.lock JSON: package object missing name")
-	}
-	if state.version == "" {
-		return lockedPackageLocation{}, fmt.Errorf("parse composer.lock JSON: package %q missing version", state.name)
-	}
-	if state.versionLine == 0 {
-		return lockedPackageLocation{}, fmt.Errorf("parse composer.lock JSON: package %q missing version line", state.name)
-	}
-
-	return lockedPackageLocation{
-		PackageName: state.name,
-		Version:     state.version,
-		URI:         lockURI,
-		Region:      regionForLine(data, newlines, state.versionLine),
-	}, nil
-}
-
-type lockedPackageScanState struct {
-	name        string
-	version     string
-	versionLine int
-}
-
-func (state *lockedPackageScanState) scanField(decoder *json.Decoder, newlines []int, key string) error {
-	keyOffset := decoder.InputOffset()
-
-	switch key {
-	case "name":
-		value, err := requireJSONString(decoder, "name")
+		offset = decoder.InputOffset()
+		val, err := nextJSONString(decoder)
 		if err != nil {
-			return err
+			return "", region{}, fmt.Errorf("parse package name value: %v", err)
 		}
-		state.name = value
-	case "version":
-		value, err := requireJSONString(decoder, "version")
-		if err != nil {
-			return err
+		if val == "" {
+			return "", region{}, errors.New("parse package name value: expected non-empty string")
 		}
-		state.version = value
-		state.versionLine = lineNumberForOffset(newlines, keyOffset-1)
-	default:
-		if err := skipJSONValue(decoder); err != nil {
-			return fmt.Errorf("parse composer.lock JSON: %w", err)
-		}
+		name = val
 	}
 
-	return nil
+	if name == "" {
+		return "", region{}, errors.New("package object missing name")
+	}
+
+	line := sort.SearchInts(newlines, int(offset)) + 1
+
+	start := 0
+	if line > 1 {
+		start = newlines[line-2] + 1
+	}
+	end := len(data)
+	if line > 1 && line-1 < len(newlines) {
+		end = newlines[line-1]
+	}
+
+	lineData := data[start:end]
+	startColumn := bytes.IndexByte(lineData, '"') + 1
+	endColumn := bytes.LastIndexByte(lineData, '"') + 1
+
+	r := region{
+		line:        line,
+		startColumn: startColumn,
+		endColumn:   endColumn,
+	}
+
+	return name, r, nil
 }
 
-func expectJSONObjectStart(decoder *json.Decoder, context string) error {
-	return expectDelim(decoder, '{', context)
-}
-
-func expectJSONArrayStart(decoder *json.Decoder, context string) error {
-	return expectDelim(decoder, '[', context)
-}
-
-func expectDelim(decoder *json.Decoder, want json.Delim, context string) error {
+func expectDelim(decoder *json.Decoder, want json.Delim) error {
 	tok, err := decoder.Token()
 	if err != nil {
 		return err
@@ -172,38 +155,24 @@ func expectDelim(decoder *json.Decoder, want json.Delim, context string) error {
 
 	delim, ok := tok.(json.Delim)
 	if !ok || delim != want {
-		return fmt.Errorf("expected %s", context)
+		return fmt.Errorf("expected %q, got %T %v", want, tok, tok)
 	}
 
 	return nil
 }
 
-func nextObjectKey(decoder *json.Decoder, context string) (string, error) {
+func nextJSONString(decoder *json.Decoder) (string, error) {
 	tok, err := decoder.Token()
 	if err != nil {
 		return "", err
 	}
 
-	key, ok := tok.(string)
+	val, ok := tok.(string)
 	if !ok {
-		return "", fmt.Errorf("expected %s", context)
+		return "", fmt.Errorf("expected JSON string literals, got %T %v", tok, tok)
 	}
 
-	return key, nil
-}
-
-func requireJSONString(decoder *json.Decoder, fieldName string) (string, error) {
-	tok, err := decoder.Token()
-	if err != nil {
-		return "", fmt.Errorf("parse composer.lock JSON: %w", err)
-	}
-
-	value, ok := tok.(string)
-	if !ok || value == "" {
-		return "", fmt.Errorf("parse composer.lock JSON: expected non-empty string for %s", fieldName)
-	}
-
-	return value, nil
+	return val, nil
 }
 
 func skipJSONValue(decoder *json.Decoder) error {
@@ -212,10 +181,6 @@ func skipJSONValue(decoder *json.Decoder) error {
 		return err
 	}
 
-	return skipJSONValueFromToken(decoder, tok)
-}
-
-func skipJSONValueFromToken(decoder *json.Decoder, tok json.Token) error {
 	delim, ok := tok.(json.Delim)
 	if !ok {
 		return nil
@@ -231,79 +196,15 @@ func skipJSONValueFromToken(decoder *json.Decoder, tok json.Token) error {
 				return err
 			}
 		}
-		_, err := decoder.Token()
-		return err
+		return expectDelim(decoder, '}')
 	case '[':
 		for decoder.More() {
 			if err := skipJSONValue(decoder); err != nil {
 				return err
 			}
 		}
-		_, err := decoder.Token()
-		return err
+		return expectDelim(decoder, ']')
 	default:
 		return nil
 	}
-}
-
-func newlineOffsets(data []byte) []int {
-	offsets := make([]int, 0, bytes.Count(data, []byte{'\n'}))
-	for i, b := range data {
-		if b == '\n' {
-			offsets = append(offsets, i)
-		}
-	}
-	return offsets
-}
-
-func lineNumberForOffset(newlines []int, offset int64) int {
-	if offset < 0 {
-		return 1
-	}
-	return sort.SearchInts(newlines, int(offset)) + 1
-}
-
-func regionForLine(data []byte, newlines []int, line int) region {
-	start, end := lineBounds(data, newlines, line)
-	lineData := data[start:end]
-	if n := len(lineData); n > 0 && lineData[n-1] == '\r' {
-		lineData = lineData[:n-1]
-	}
-
-	return region{
-		StartLine:   line,
-		StartColumn: firstNonWhitespaceColumn(lineData),
-		EndLine:     line,
-		EndColumn:   utf8.RuneCount(lineData) + 1,
-	}
-}
-
-func lineBounds(data []byte, newlines []int, line int) (int, int) {
-	start := 0
-	if line <= 1 {
-		start = 0
-	} else {
-		start = newlines[line-2] + 1
-	}
-
-	end := len(data)
-	if line-1 < len(newlines) {
-		end = newlines[line-1]
-	}
-
-	return start, end
-}
-
-func firstNonWhitespaceColumn(line []byte) int {
-	column := 1
-	for len(line) > 0 {
-		r, size := utf8.DecodeRune(line)
-		if !unicode.IsSpace(r) {
-			return column
-		}
-		column++
-		line = line[size:]
-	}
-
-	return 1
 }

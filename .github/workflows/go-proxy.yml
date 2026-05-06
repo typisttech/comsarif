@@ -1,0 +1,14 @@
+name: Go Proxy
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+permissions: {}
+
+jobs:
+  go:
+    uses: typisttech/.github/.github/workflows/go-proxy.yml@86c07906e5ad8ccd4bab27975f7f67e348498f82 # v5.4.0

@@ -1,0 +1,37 @@
+exec comsarif --audit audit.json --lock composer.lock
+! stderr .
+
+-- audit.json --
+{
+  "advisories": [],
+  "abandoned": []
+}
+
+-- composer.lock --
+{
+  "packages": [
+    {
+      "name": "vendor1/pkg1",
+      "config": {
+        "extra" {
+          "packages": [
+            {
+              "name": "vendor1/pkg2"
+            },
+            {
+              "name": "vendor1/pkg3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "vendor1/pkg2"
+    }
+  ],
+  "packages-dev": [
+    {
+      "name": "vendor1/pkg3"
+    }
+  ]
+}

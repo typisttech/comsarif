@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
+	"regexp"
 	"strings"
 )
 
@@ -25,7 +25,7 @@ func newAudit(r io.Reader) (audit, error) {
 		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
 	}
 
-	var doc audit
+	var aud audit
 
 	advisories, err := raw.Advisories.normalize()
 	if err != nil {
@@ -38,11 +38,11 @@ func newAudit(r io.Reader) (audit, error) {
 	}
 
 	//nolint:gocritic
-	doc.advisories = append(advisories, ignoredAdvisories...)
+	aud.advisories = append(advisories, ignoredAdvisories...)
 
-	doc.abandonments = raw.Abandoned.normalize()
+	aud.abandonments = raw.Abandoned.normalize()
 
-	return doc, nil
+	return aud, nil
 }
 
 type advisory struct {
@@ -65,7 +65,8 @@ func (a advisory) help() string {
 	if strings.HasPrefix(a.id, "WPSECADV/WF/") {
 		title = strings.ReplaceAll(title, "\n### ", "\n\n")
 	}
-	sb.WriteString(title + "\n")
+	sb.WriteString(title)
+	sb.WriteByte('\n')
 
 	sb.WriteString(`
 | Field | Value |
@@ -100,31 +101,49 @@ func (a advisory) help() string {
 }
 
 func markdownRow(field, value string) string {
-	value = strings.ReplaceAll(value, "|", "\\|")
-	value = strings.ReplaceAll(value, "\n", "")
-	return fmt.Sprintf("| %s | %s |\n", field, value)
+	re := strings.NewReplacer("|", "\\|", "\n", "")
+	return fmt.Sprintf("| %s | %s |\n", field, re.Replace(value))
 }
 
 func (a advisory) ruleID() string {
 	return "advisory/" + a.packageName + "/" + a.id
 }
 
-func (a advisory) description() string {
+var (
+	ghsaRe            = regexp.MustCompile(`^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$`)
+	wpsecadvWFTitleRe = regexp.MustCompile(`^.+ - ([^\s\d].*)$`)
+)
+
+func (a advisory) externalID() string {
 	if a.cve != "" {
 		return a.cve
 	}
-
-	// TODO: Use GHSA ID.
-
+	for _, s := range a.sources {
+		if ghsaRe.MatchString(s.remoteID) {
+			return s.remoteID
+		}
+	}
 	return a.id
 }
 
-func (a advisory) message() string {
-	return "Package " + a.packageName + " is vulnerable to " + a.description() + "."
+func (a advisory) description() string {
+	return firstNonEmptyLine(a.title)
 }
 
-func (a advisory) securitySeverity() string {
-	return a.severity.score()
+func (a advisory) message() string {
+	desc := a.description()
+	if strings.HasPrefix(a.id, "WPSECADV/WF/") {
+		if m := wpsecadvWFTitleRe.FindStringSubmatch(desc); m != nil {
+			desc = m[1]
+		}
+	}
+
+	msg := fmt.Sprintf("Package %s (%s) is vulnerable to %s",
+		a.packageName, a.affectedVersions, a.externalID())
+	if desc != "" {
+		msg += ": " + desc
+	}
+	return msg
 }
 
 type advisorySeverity string
@@ -139,19 +158,10 @@ const (
 )
 
 func newAdvisorySeverity(severity string) advisorySeverity {
-	severity = strings.ToLower(strings.TrimSpace(severity))
-
-	switch severity {
-	case "critical":
-		return severityCritical
-	case "high":
-		return severityHigh
-	case "medium":
-		return severityMedium
-	case "low":
-		return severityLow
-	case "none":
-		return severityNone
+	s := advisorySeverity(strings.ToLower(strings.TrimSpace(severity)))
+	switch s {
+	case severityCritical, severityHigh, severityMedium, severityLow, severityNone:
+		return s
 	default:
 		return severityUnknown
 	}
@@ -182,10 +192,16 @@ type advisorySource struct {
 }
 
 func (s advisorySource) String() string {
-	if s.name == "" {
+	switch {
+	case s.remoteID == "" && s.name == "":
+		return ""
+	case s.name == "":
 		return s.remoteID
+	case s.remoteID == "":
+		return s.name
+	default:
+		return fmt.Sprintf("%s (%s)", s.remoteID, s.name)
 	}
-	return fmt.Sprintf("%s (%s)", s.remoteID, s.name)
 }
 
 type abandonment struct {
@@ -237,21 +253,18 @@ func (as *rawAdvisories) normalize() ([]advisory, error) {
 	}
 	m := *as
 
-	groups := make([][]advisory, 0, len(m))
+	var advs []advisory
 	for pkg, raws := range m {
-		group := make([]advisory, 0, len(raws))
 		for i, raw := range raws {
 			adv, err := raw.normalize()
 			if err != nil {
 				return nil, fmt.Errorf("package %q advisories[%d]: %w", pkg, i, err)
 			}
-
-			group = append(group, adv)
+			advs = append(advs, adv)
 		}
-		groups = append(groups, group)
 	}
 
-	return slices.Concat(groups...), nil
+	return advs, nil
 }
 
 type rawAdvisory struct {
@@ -315,7 +328,7 @@ type rawAdvisorySource struct {
 func (s rawAdvisorySource) normalize() (advisorySource, error) {
 	rid := normalizeString(s.RemoteID)
 	if rid == "" {
-		return advisorySource{}, errors.New("empty advisory ID")
+		return advisorySource{}, errors.New("empty remoteID")
 	}
 
 	return advisorySource{
@@ -367,11 +380,8 @@ func unmarshalJSONObjectOrEmptyArray[T any](b []byte, fieldName string, dst *map
 
 	switch b[0] {
 	case '[':
-		var arr []json.RawMessage
-		if err := json.Unmarshal(b, &arr); err != nil {
-			return err
-		}
-		if len(arr) != 0 {
+		inner := bytes.TrimSpace(b[1:])
+		if len(inner) == 0 || inner[0] != ']' {
 			return fmt.Errorf("expected empty array for %s", fieldName)
 		}
 		*dst = map[string]T{}
@@ -388,4 +398,13 @@ func normalizeString(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func firstNonEmptyLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if t := strings.TrimSpace(line); t != "" {
+			return t
+		}
+	}
+	return ""
 }

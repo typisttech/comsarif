@@ -1,0 +1,29 @@
+exec comsarif --audit audit.json --lock composer.lock
+stdout .
+! stderr .
+
+-- audit.json --
+{
+  "advisories": {
+    "vendor/prod-pkg": [
+      {
+        "advisoryId": "ADV-001",
+        "packageName": "vendor/prod-pkg",
+        "affectedVersions": ">=1.0.0,<2.0.0",
+        "title": "Vulnerability in prod package",
+        "cve": "CVE-2024-00001",
+        "link": "https://example.com/adv-001",
+        "reportedAt": "2024-01-01",
+        "severity": "high",
+        "sources": [{"name": "FriendsOfPHP", "remoteId": "FoP/ADV-001"}]
+      }
+    ]
+  },
+  "abandoned": []
+}
+
+-- composer.lock --
+{
+  "packages": [{"name": "vendor/prod-pkg"}],
+  "packages-dev": [{"name": "vendor/dev-pkg"}]
+}

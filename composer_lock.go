@@ -24,12 +24,11 @@ func newRegions(r io.Reader) (regions, error) {
 	}
 
 	// TODO: Find a way to read it in chunks instead of io.ReadAll
-	eol := []byte{'\n'}
-	lineBreaks := make([]int, 0, bytes.Count(data, eol))
-	haystack := bytes.Clone(data)
-	for x, d := bytes.Index(haystack, eol), 0; x > -1; x, d = bytes.Index(haystack, eol), d+x+1 {
-		lineBreaks = append(lineBreaks, x+d)
-		haystack = haystack[x+1:]
+	lineBreaks := make([]int, 0, bytes.Count(data, []byte("\n")))
+	for i, b := range data {
+		if b == '\n' {
+			lineBreaks = append(lineBreaks, i)
+		}
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))

@@ -1,0 +1,9 @@
+! exec comsarif --audit audit.json --lock composer.lock
+! stdout .
+stderr .
+
+-- audit.json --
+not valid json {
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(tt-go:go-explore)",
+      "Skill(tt-go:go-test)"
+    ]
+  },
+  "enabledPlugins": {
+    "tt-go@typisttech": true,
+    "gopls-lsp@claude-plugins-official": true
+  }
+}

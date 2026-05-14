@@ -1,0 +1,43 @@
+exec comsarif --help
+! stdout .
+cmp stderr err.golden
+
+-- err.golden --
+
+USAGE:
+  comsarif [<flags>...] --audit <audit.json> --lock <composer.lock>
+
+FLAGS:
+  -audit string
+    	path to Composer audit JSON
+  -lock string
+    	path to composer.lock
+  -root string
+    	path to repository root. Default to current directory
+  -v	Print version
+  -version
+    	Print version
+
+EXAMPLES:
+  # Generate SARIF based on composer.lock
+  $ composer audit --locked --format json > audit.json
+  $ comsarif --audit audit.json --lock composer.lock
+
+  # Generate SARIF based on installed packages
+  $ composer install
+  $ composer audit --format json > audit.json
+  $ comsarif --audit audit.json --lock composer.lock
+
+SUPPORT COMSARIF:
+  If you find this tool useful, please consider supporting its development.
+  Every contribution counts, regardless how big or small.
+  I am eternally grateful to all sponsors who fund my open source journey.
+
+GitHub Sponsor  https://github.com/sponsors/tangrufus
+
+HIRE TANG RUFUS:
+  I am looking for my next role, freelance or full-time.
+  If you find this tool useful, I can build you more weird stuff like this.
+  Let's talk if you are hiring PHP / Ruby / Go developers.
+
+Contact         https://typist.tech/contact/

@@ -1,0 +1,6 @@
+! exec comsarif --lock composer.lock
+! stdout .
+stderr 'missing required --audit flag'
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

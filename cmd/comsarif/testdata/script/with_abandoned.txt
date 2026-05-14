@@ -1,0 +1,17 @@
+exec comsarif --audit audit.json --lock composer.lock
+stdout .
+! stderr .
+
+-- audit.json --
+{
+  "advisories": [],
+  "abandoned": {
+    "vendor/old-package": "Use vendor/new-package instead"
+  }
+}
+
+-- composer.lock --
+{
+  "packages": [{"name": "vendor/old-package"}],
+  "packages-dev": []
+}

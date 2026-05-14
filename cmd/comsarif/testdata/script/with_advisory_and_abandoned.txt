@@ -1,0 +1,34 @@
+exec comsarif --audit audit.json --lock composer.lock
+stdout .
+! stderr .
+
+-- audit.json --
+{
+  "advisories": {
+    "vendor/pkg-a": [
+      {
+        "advisoryId": "ADV-001",
+        "packageName": "vendor/pkg-a",
+        "affectedVersions": ">=1.0.0,<2.0.0",
+        "title": "SQL Injection",
+        "cve": "CVE-2024-00001",
+        "link": "https://example.com/adv-001",
+        "reportedAt": "2024-01-01",
+        "severity": "high",
+        "sources": [{"name": "FriendsOfPHP", "remoteId": "FoP/ADV-001"}]
+      }
+    ]
+  },
+  "abandoned": {
+    "vendor/old-package": "Use vendor/new-package instead"
+  }
+}
+
+-- composer.lock --
+{
+  "packages": [
+    {"name": "vendor/pkg-a"},
+    {"name": "vendor/old-package"}
+  ],
+  "packages-dev": []
+}

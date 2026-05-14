@@ -1,0 +1,9 @@
+! exec comsarif --audit audit.json --lock composer.lock
+! stdout .
+stderr .
+
+-- audit.json --
+{"advisories":[],"abandoned":[]}
+
+-- composer.lock --
+not valid json {

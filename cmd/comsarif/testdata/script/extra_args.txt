@@ -1,0 +1,9 @@
+! exec comsarif --audit audit.json --lock composer.lock unexpected-arg
+! stdout .
+stderr 'unexpected arguments'
+
+-- audit.json --
+{"advisories":[],"abandoned":[]}
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

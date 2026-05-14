@@ -1,0 +1,6 @@
+! exec comsarif --audit audit.json
+! stdout .
+stderr 'missing required --lock flag'
+
+-- audit.json --
+{"advisories":[],"abandoned":[]}

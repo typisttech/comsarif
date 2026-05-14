@@ -1,4 +1,5 @@
 exec comsarif --audit audit.json --lock composer.lock
+stdout .
 ! stderr .
 
 -- audit.json --
@@ -13,7 +14,7 @@ exec comsarif --audit audit.json --lock composer.lock
     {
       "name": "vendor1/pkg1",
       "config": {
-        "extra" {
+        "extra": {
           "packages": [
             {
               "name": "vendor1/pkg2"

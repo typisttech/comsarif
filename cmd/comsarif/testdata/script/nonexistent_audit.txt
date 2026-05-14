@@ -1,0 +1,6 @@
+! exec comsarif --audit nonexistent.json --lock composer.lock
+! stdout .
+stderr .
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

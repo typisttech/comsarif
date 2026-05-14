@@ -1,0 +1,26 @@
+! exec comsarif --audit audit.json --lock composer.lock
+! stdout .
+stderr 'not found in composer.lock'
+
+-- audit.json --
+{
+  "advisories": {
+    "vendor/missing-package": [
+      {
+        "advisoryId": "ADV-001",
+        "packageName": "vendor/missing-package",
+        "affectedVersions": ">=1.0.0,<2.0.0",
+        "title": "Security issue",
+        "cve": "CVE-2024-00001",
+        "link": "https://example.com/adv-001",
+        "reportedAt": "2024-01-01",
+        "severity": "high",
+        "sources": [{"name": "FriendsOfPHP", "remoteId": "FoP/ADV-001"}]
+      }
+    ]
+  },
+  "abandoned": []
+}
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

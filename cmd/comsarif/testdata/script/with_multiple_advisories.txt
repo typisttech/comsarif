@@ -1,0 +1,45 @@
+exec comsarif --audit audit.json --lock composer.lock
+stdout .
+! stderr .
+
+-- audit.json --
+{
+  "advisories": {
+    "vendor/pkg-a": [
+      {
+        "advisoryId": "ADV-001",
+        "packageName": "vendor/pkg-a",
+        "affectedVersions": ">=1.0.0,<2.0.0",
+        "title": "Remote Code Execution",
+        "cve": "CVE-2024-00001",
+        "link": "https://example.com/adv-001",
+        "reportedAt": "2024-01-01",
+        "severity": "critical",
+        "sources": [{"name": "FriendsOfPHP", "remoteId": "FoP/ADV-001"}]
+      }
+    ],
+    "vendor/pkg-b": [
+      {
+        "advisoryId": "ADV-002",
+        "packageName": "vendor/pkg-b",
+        "affectedVersions": ">=1.0.0,<1.5.0",
+        "title": "XSS vulnerability",
+        "cve": "CVE-2024-00002",
+        "link": "https://example.com/adv-002",
+        "reportedAt": "2024-02-01",
+        "severity": "medium",
+        "sources": [{"name": "FriendsOfPHP", "remoteId": "FoP/ADV-002"}]
+      }
+    ]
+  },
+  "abandoned": []
+}
+
+-- composer.lock --
+{
+  "packages": [
+    {"name": "vendor/pkg-a"},
+    {"name": "vendor/pkg-b"}
+  ],
+  "packages-dev": []
+}

@@ -1,0 +1,14 @@
+! exec comsarif --audit audit.json --lock composer.lock
+! stdout .
+stderr 'not found in composer.lock'
+
+-- audit.json --
+{
+  "advisories": [],
+  "abandoned": {
+    "vendor/missing-package": "Use something else"
+  }
+}
+
+-- composer.lock --
+{"packages":[],"packages-dev":[]}

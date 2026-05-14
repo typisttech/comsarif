@@ -1,0 +1,3 @@
+! exec comsarif
+! stdout .
+stderr 'missing required --audit flag'

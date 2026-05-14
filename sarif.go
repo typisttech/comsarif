@@ -58,12 +58,14 @@ func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.Repo
 	rules = append(rules, advRules...)
 	results = append(results, advResults...)
 
-	abRule, abResults, err := abandonedFindings(regs, aLoc, aud.abandonments)
-	if err != nil {
-		return nil, nil, err
+	if len(aud.abandonments) > 0 {
+		abRule, abResults, err := abandonedFindings(regs, aLoc, aud.abandonments)
+		if err != nil {
+			return nil, nil, err
+		}
+		rules = append(rules, abRule)
+		results = append(results, abResults...)
 	}
-	rules = append(rules, abRule)
-	results = append(results, abResults...)
 
 	return rules, results, nil
 }
@@ -72,18 +74,16 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 	rules := make([]*sarif.ReportingDescriptor, 0, len(advisories))
 	results := make([]*sarif.Result, 0, len(advisories))
 
-	pb := sarif.NewPropertyBag().
-		WithTags([]string{"dependency", "security"}).
-		Add("precision", "very-high")
-
 	for _, adv := range advisories {
 		reg, ok := regions[adv.packageName]
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", adv.packageName)
 		}
 
-		ss := adv.securitySeverity()
-		if ss != "" {
+		pb := sarif.NewPropertyBag().
+			WithTags([]string{"dependency", "security"}).
+			Add("precision", "very-high")
+		if ss := adv.severity.score(); ss != "" {
 			pb.Add("security-severity", ss)
 		}
 
@@ -107,6 +107,9 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 }
 
 func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
 	runes := []rune(s)
 	if len(runes) <= maxLen {
 		return s

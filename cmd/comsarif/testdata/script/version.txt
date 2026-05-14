@@ -1,0 +1,6 @@
+exec comsarif --version
+! stdout .
+stderr 'WPry'
+stderr 'https://github.com/typisttech/comsarif'
+stderr 'https://github.com/sponsors/tangrufus'
+stderr 'https://typist.tech/contact'

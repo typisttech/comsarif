@@ -16,6 +16,7 @@ linters:
     - containedctx
     - contextcheck
     - copyloopvar
+    - cyclop
     - depguard
     - dogsled
     - dupl
@@ -63,6 +64,8 @@ linters:
         - -ST1000 # at least one file in a package should have a package comment
 
     # Custom
+    cyclop:
+      max-complexity: 12
     depguard:
       rules:
         all:
@@ -122,6 +125,10 @@ linters:
       - source: "^\\s*defer\\s+"
         linters:
           - errcheck
+
+      - path: _test\.go
+        linters:
+          - cyclop
 
 formatters:
   enable:

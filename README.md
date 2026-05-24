@@ -87,21 +87,21 @@ Refer to [Go Reference on pkg.go.dev](https://pkg.go.dev/github.com/typisttech/c
 > If you are hiring PHP / Ruby / Go developers,
 > contact me at https://typist.tech/contact/
 
-### CLI Installation
+## CLI Installation
 
-#### Homebrew (macOS / Linux) (Recommended)
+### Homebrew (macOS / Linux) (Recommended)
 
 ```bash
 brew install typisttech/tap/comsarif
 ```
 
-#### Build from Source
+### Build from Source
 
 ```bash
 go install github.com/typisttech/comsarif/cmd/comsarif@latest
 ```
 
-#### Linux (Debian & Alpine)
+### Linux (Debian & Alpine)
 
 Follow the instructions on https://broadcasts.cloudsmith.com/typisttech/oss
 
@@ -111,6 +111,17 @@ Package repository hosting is graciously provided by [Cloudsmith](https://clouds
 Cloudsmith is the only fully hosted, cloud-native, universal package management solution, that
 enables your organization to create, store and share packages in any format, to any place, with total
 confidence.
+
+## People Also Use
+
+- [Composer Audit to SARIF Action](https://github.com/typisttech/composer-audit-to-sarif-action)
+  Use ComSarif in GitHub Actions
+- [PHP Matrix Action](https://github.com/typisttech/php-matrix-action)
+  Generate PHP version matrix according to `composer.json` for GitHub Actions
+- [WP Sec Adv](https://github.com/typisttech/wpsecadv)
+  Composer repository for WordPress security advisories
+- [WP Org Closed Plugin](https://github.com/typisttech/wp-org-closed-plugin)
+  Composer plugin to mark packages as abandoned if closed on WordPress.org
 
 ## Credits
 

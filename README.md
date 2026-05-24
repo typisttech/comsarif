@@ -1,6 +1,6 @@
 <div align="center">
 
-# ComSarif
+# ComSARIF
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/typisttech/comsarif.svg)](https://pkg.go.dev/github.com/typisttech/comsarif)
 [![GitHub Release](https://img.shields.io/github/v/release/typisttech/comsarif?style=flat-square&)](https://github.com/typisttech/comsarif/releases/latest)
@@ -115,7 +115,7 @@ confidence.
 ## People Also Use
 
 - [Composer Audit to SARIF Action](https://github.com/typisttech/composer-audit-to-sarif-action)
-  Use ComSarif in GitHub Actions
+  Use ComSARIF in GitHub Actions
 - [PHP Matrix Action](https://github.com/typisttech/php-matrix-action)
   Generate PHP version matrix according to `composer.json` for GitHub Actions
 - [WP Sec Adv](https://github.com/typisttech/wpsecadv)
@@ -125,7 +125,7 @@ confidence.
 
 ## Credits
 
-[ComSarif](https://github.com/typisttech/comsarif) is a [Typist Tech](https://typist.tech) project and maintained by [Tang Rufus](https://x.com/TangRufus), freelance developer for [hire](https://typist.tech/contact/).
+[ComSARIF](https://github.com/typisttech/comsarif) is a [Typist Tech](https://typist.tech) project and maintained by [Tang Rufus](https://x.com/TangRufus), freelance developer for [hire](https://typist.tech/contact/).
 
 Full list of contributors can be found [here](https://github.com/typisttech/comsarif/graphs/contributors).
 

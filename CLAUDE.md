@@ -1,4 +1,4 @@
-## Cmmands
+## Commands
 
 ```bash
 # Run all tests

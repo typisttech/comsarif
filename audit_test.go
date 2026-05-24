@@ -303,21 +303,19 @@ func TestAdvisory_ExternalID(t *testing.T) {
 		adv  advisory
 		want string
 	}{
-		{"cve_set_returns_cve", advisory{id: "ADV-001", cve: "CVE-2023-1234"}, "CVE-2023-1234"},
-		{"cve_empty_returns_id", advisory{id: "ADV-001", cve: ""}, "ADV-001"},
-		{"both_empty", advisory{id: "", cve: ""}, ""},
-		{"cve_whitespace_returned_as_is", advisory{id: "ADV-001", cve: "  "}, "  "},
-		{"id_whitespace", advisory{id: "  ", cve: ""}, "  "},
-		{"long_cve", advisory{id: "ADV-001", cve: "CVE-2023-99999"}, "CVE-2023-99999"},
+		{"cve", advisory{id: "ADV-001", cve: "CVE-2023-1234"}, "CVE-2023-1234"},
+		{"id", advisory{id: "ADV-001"}, "ADV-001"},
+		{"empty", advisory{}, ""},
 		{"cve_with_special_chars", advisory{id: "ADV-001", cve: "CVE-2023/001"}, "CVE-2023/001"},
-		{"unicode_cve", advisory{id: "ID", cve: "漢字"}, "漢字"},
-		{"id_with_slashes_no_cve", advisory{id: "WPSECADV/WF/001", cve: ""}, "WPSECADV/WF/001"},
-		{"cve_zero_value_struct", advisory{}, ""},
-		{"ghsa_returned_when_no_cve", advisory{id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}}, "GHSA-2345-6789-cfrv"},
+		{"cve_with_unicode", advisory{id: "ID", cve: "漢字"}, "漢字"},
+		{"id_with_unicode", advisory{id: "漢字"}, "漢字"},
+		{"id_with_special_chars", advisory{id: "WPSECADV/WF/001"}, "WPSECADV/WF/001"},
+		{"ghsa_returned_when_no_cve", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}}, "GHSA-2345-6789-cfrv"},
 		{"cve_wins_over_ghsa", advisory{id: "ADV-001", cve: "CVE-2023-1", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}}, "CVE-2023-1"},
 		{"first_ghsa_source_used", advisory{id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}, {remoteID: "GHSA-wxyz-abcd-1234"}}}, "GHSA-2345-6789-cfrv"},
-		{"non_ghsa_remote_id_ignored", advisory{id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}}, "ADV-001"},
-		{"ghsa_uppercase_rejected", advisory{id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-WXYZ-cfgr"}}}, "ADV-001"},
+		{"non_ghsa_remote_id_ignored/id", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}}, "ADV-001"},
+		{"non_ghsa_remote_id_ignored/cve", advisory{id: "ADV-001", cve: "CVE-2023-1234", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}}, "CVE-2023-1234"},
+		{"ghsa_uppercase_rejected", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-WXYZ-cfgr"}}}, "ADV-001"},
 	}
 
 	for _, tt := range tests {
@@ -369,34 +367,19 @@ func TestAdvisory_Message(t *testing.T) {
 		want string
 	}{
 		{
-			"with_title_and_cve",
-			advisory{packageName: "vendor/pkg", affectedVersions: ">=1.0,<1.5", id: "ADV-001", cve: "CVE-2023-1234", title: "SQL Injection"},
-			"Package vendor/pkg (>=1.0,<1.5) is vulnerable to CVE-2023-1234: SQL Injection",
+			"cve",
+			advisory{packageName: "vendor/pkg", affectedVersions: ">=1.0,<1.5", id: "ADV-001", cve: "CVE-2023-1234"},
+			"Package vendor/pkg (>=1.0,<1.5) is vulnerable to CVE-2023-1234",
 		},
 		{
-			"empty_title_omits_suffix",
-			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", cve: "CVE-2023-1234", title: ""},
-			"Package vendor/pkg (1.0) is vulnerable to CVE-2023-1234",
-		},
-		{
-			"no_cve_uses_id",
-			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", cve: "", title: "Remote Code Execution"},
-			"Package vendor/pkg (1.0) is vulnerable to ADV-001: Remote Code Execution",
-		},
-		{
-			"multi_line_title_first_line_used",
-			advisory{packageName: "a/b", affectedVersions: "*", id: "ADV", title: "First Line\nSecond Line"},
-			"Package a/b (*) is vulnerable to ADV: First Line",
+			"no_external_id",
+			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001"},
+			"Package vendor/pkg (1.0) is vulnerable to ADV-001",
 		},
 		{
 			"ghsa_source",
-			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", cve: "", title: "XSS Vulnerability", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}},
-			"Package vendor/pkg (1.0) is vulnerable to GHSA-2345-6789-cfrv: XSS Vulnerability",
-		},
-		{
-			"cve_preferred_over_id",
-			advisory{packageName: "a/b", affectedVersions: "1.0", id: "ADV-999", cve: "CVE-0000-0000", title: "Bug"},
-			"Package a/b (1.0) is vulnerable to CVE-0000-0000: Bug",
+			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}},
+			"Package vendor/pkg (1.0) is vulnerable to GHSA-2345-6789-cfrv",
 		},
 		{
 			"zero_value",
@@ -404,39 +387,14 @@ func TestAdvisory_Message(t *testing.T) {
 			"Package  () is vulnerable to ",
 		},
 		{
-			"unicode_package",
-			advisory{packageName: "漢字/pkg", affectedVersions: "1.0", id: "ADV", cve: "", title: "XSS"},
-			"Package 漢字/pkg (1.0) is vulnerable to ADV: XSS",
+			"unicode_id",
+			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "中文字", cve: "", title: "XSS"},
+			"Package vendor/pkg (1.0) is vulnerable to 中文字",
 		},
 		{
-			"non_wpsec_hyphen_title_no_special_handling",
-			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", title: "Plugin - Missing Auth"},
-			"Package vendor/pkg (1.0) is vulnerable to ADV-001: Plugin - Missing Auth",
-		},
-		{
-			"wpsec_simple_suffix",
-			advisory{packageName: "wp/plugin", affectedVersions: "<=7.1.0", id: "WPSECADV/WF/001", title: "Foo Bar - Baz Quz <= 7.1.0 - Missing Authorization"},
-			"Package wp/plugin (<=7.1.0) is vulnerable to WPSECADV/WF/001: Missing Authorization",
-		},
-		{
-			"wpsec_version_range_segment",
-			advisory{packageName: "wp/core", affectedVersions: "5.4-5.8", id: "WPSECADV/WF/002", title: "WordPress Core 5.4 - 5.8 - Sensitive Information Disclosure"},
-			"Package wp/core (5.4-5.8) is vulnerable to WPSECADV/WF/002: Sensitive Information Disclosure",
-		},
-		{
-			"wpsec_no_plugin_prefix",
-			advisory{packageName: "wp/plugin", affectedVersions: "*", id: "WPSECADV/WF/003", title: "Foo Bar - Authenticated (Subscriber+) Stored Cross-Site Scripting via Multiple Shortcodes"},
-			"Package wp/plugin (*) is vulnerable to WPSECADV/WF/003: Authenticated (Subscriber+) Stored Cross-Site Scripting via Multiple Shortcodes",
-		},
-		{
-			"wpsec_no_pattern_match_uses_full_title",
-			advisory{packageName: "wp/plugin", affectedVersions: "1.0", id: "WPSECADV/WF/004", title: "Simple Advisory Title"},
-			"Package wp/plugin (1.0) is vulnerable to WPSECADV/WF/004: Simple Advisory Title",
-		},
-		{
-			"wpsec_empty_title_omits_suffix",
-			advisory{packageName: "wp/plugin", affectedVersions: "1.0", id: "WPSECADV/WF/001", title: ""},
-			"Package wp/plugin (1.0) is vulnerable to WPSECADV/WF/001",
+			"unpatched",
+			advisory{packageName: "vendor/pkg", affectedVersions: "*", id: "ADV-001"},
+			"Package vendor/pkg (*) is vulnerable to ADV-001",
 		},
 	}
 

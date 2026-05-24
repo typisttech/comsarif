@@ -109,10 +109,7 @@ func (a advisory) ruleID() string {
 	return "advisory/" + a.packageName + "/" + a.id
 }
 
-var (
-	ghsaRe            = regexp.MustCompile(`^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$`)
-	wpsecadvWFTitleRe = regexp.MustCompile(`^.+ - ([^\s\d].*)$`)
-)
+var ghsaRe = regexp.MustCompile(`^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$`)
 
 func (a advisory) externalID() string {
 	if a.cve != "" {
@@ -127,23 +124,21 @@ func (a advisory) externalID() string {
 }
 
 func (a advisory) description() string {
-	return firstNonEmptyLine(a.title)
+	for line := range strings.Lines(a.title) {
+		if l := strings.TrimSpace(line); l != "" {
+			return l
+		}
+	}
+	return ""
 }
 
 func (a advisory) message() string {
-	desc := a.description()
-	if strings.HasPrefix(a.id, "WPSECADV/WF/") {
-		if m := wpsecadvWFTitleRe.FindStringSubmatch(desc); m != nil {
-			desc = m[1]
-		}
-	}
-
-	msg := fmt.Sprintf("Package %s (%s) is vulnerable to %s",
-		a.packageName, a.affectedVersions, a.externalID())
-	if desc != "" {
-		msg += ": " + desc
-	}
-	return msg
+	return fmt.Sprintf(
+		"Package %s (%s) is vulnerable to %s",
+		a.packageName,
+		a.affectedVersions,
+		a.externalID(),
+	)
 }
 
 type advisorySeverity string
@@ -398,13 +393,4 @@ func normalizeString(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
-}
-
-func firstNonEmptyLine(s string) string {
-	for _, line := range strings.Split(s, "\n") {
-		if t := strings.TrimSpace(line); t != "" {
-			return t
-		}
-	}
-	return ""
 }

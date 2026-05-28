@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/owenrumney/go-sarif/v3 v3.3.0
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 )
 
 require (

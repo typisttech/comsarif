@@ -135,7 +135,7 @@ func locatePackageRegion(decoder *json.Decoder, data []byte, newlines []int) (st
 
 	lineData := data[start:end]
 	startColumn := bytes.IndexByte(lineData, '"') + 1
-	endColumn := bytes.LastIndexByte(lineData, '"') + 1
+	endColumn := bytes.LastIndexByte(lineData, '"') + 2
 
 	r := region{
 		line:        line,

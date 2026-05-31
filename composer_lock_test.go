@@ -46,7 +46,6 @@ func TestExpectDelim(t *testing.T) {
 	}
 }
 
-// TestExpectDelim_Errors covers error cases.
 func TestExpectDelim_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -113,7 +112,6 @@ func TestNextJSONString(t *testing.T) {
 	}
 }
 
-// TestNextJSONString_Errors covers error cases.
 func TestNextJSONString_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -202,12 +200,12 @@ func TestLocatePackageRegion(t *testing.T) {
 		want    string
 		wantReg region
 	}{
-		{"name_only_field", `{"name":"vendor/pkg"}`, "vendor/pkg", region{1, 2, 21}},
-		{"name_after_other_fields", `{"version":"1.0","name":"vendor/pkg"}`, "vendor/pkg", region{1, 2, 37}},
-		{"name_before_other_fields", `{"name":"vendor/pkg","version":"1.0","description":"foo"}`, "vendor/pkg", region{1, 2, 57}},
-		{"name_with_nested_object_before_it", `{"extra":{"key":"val"},"name":"vendor/nested"}`, "vendor/nested", region{1, 2, 46}},
-		{"name_with_array_field", `{"keywords":["a","b"],"name":"vendor/arr"}`, "vendor/arr", region{1, 2, 42}},
-		{"many_fields_before_name", `{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`, "vendor/many", region{1, 2, 54}},
+		{"name_only_field", `{"name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 21}},
+		{"name_after_other_fields", `{"version":"1.0","name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 37}},
+		{"name_before_other_fields", `{"name":"vendor/pkg","version":"1.0","description":"foo"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 57}},
+		{"name_with_nested_object_before_it", `{"extra":{"key":"val"},"name":"vendor/nested"}`, "vendor/nested", region{line: 1, startColumn: 2, endColumn: 46}},
+		{"name_with_array_field", `{"keywords":["a","b"],"name":"vendor/arr"}`, "vendor/arr", region{line: 1, startColumn: 2, endColumn: 42}},
+		{"many_fields_before_name", `{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`, "vendor/many", region{line: 1, startColumn: 2, endColumn: 54}},
 		{
 			"multiline_object_name_on_own_line",
 			`{
@@ -215,13 +213,13 @@ func TestLocatePackageRegion(t *testing.T) {
 "name":"vendor/multi"
 }`,
 			"vendor/multi",
-			region{3, 1, 22},
+			region{line: 3, startColumn: 1, endColumn: 22},
 		},
-		{"name_with_deeply_nested_field_before_it", `{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`, "vendor/pkg2", region{1, 2, 62}},
-		{"name_with_boolean_field_before_it", `{"abandoned":false,"name":"vendor/pkg3"}`, "vendor/pkg3", region{1, 2, 40}},
-		{"name_with_null_field_before_it", `{"homepage":null,"name":"vendor/pkg4"}`, "vendor/pkg4", region{1, 2, 38}},
-		{"nested_name_inside_extra_before", `{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`, "monolog/monolog", region{1, 2, 61}},
-		{"nested_name_inside_extra_after", `{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`, "monolog/monolog", region{1, 2, 59}},
+		{"name_with_deeply_nested_field_before_it", `{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`, "vendor/pkg2", region{line: 1, startColumn: 2, endColumn: 62}},
+		{"name_with_boolean_field_before_it", `{"abandoned":false,"name":"vendor/pkg3"}`, "vendor/pkg3", region{line: 1, startColumn: 2, endColumn: 40}},
+		{"name_with_null_field_before_it", `{"homepage":null,"name":"vendor/pkg4"}`, "vendor/pkg4", region{line: 1, startColumn: 2, endColumn: 38}},
+		{"nested_name_inside_extra_before", `{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 61}},
+		{"nested_name_inside_extra_after", `{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 59}},
 	}
 
 	for _, tt := range tests {
@@ -242,7 +240,6 @@ func TestLocatePackageRegion(t *testing.T) {
 	}
 }
 
-// TestLocatePackageRegion_Errors covers error cases.
 func TestLocatePackageRegion_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -291,20 +288,20 @@ func TestParsePackageArray(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		content string
-		want    regions
+		name           string
+		content        string
+		wantRegionKeys []string
 	}{
-		{"empty_array", `[]`, regions{}},
-		{"single_package", `[{"name":"vendor/foo"}]`, regions{"vendor/foo": {}}},
-		{"two_packages", `[{"name":"vendor/foo"},{"name":"vendor/bar"}]`, regions{"vendor/foo": {}, "vendor/bar": {}}},
-		{"package_with_extra_fields", `[{"version":"1.0","name":"vendor/pkg","description":"d"}]`, regions{"vendor/pkg": {}}},
-		{"package_name_after_nested_object", `[{"extra":{"x":1},"name":"vendor/nested"}]`, regions{"vendor/nested": {}}},
-		{"three_packages", `[{"name":"a/b"},{"name":"c/d"},{"name":"e/f"}]`, regions{"a/b": {}, "c/d": {}, "e/f": {}}},
-		{"package_with_array_field_before_name", `[{"keywords":["x","y"],"name":"vendor/kw"}]`, regions{"vendor/kw": {}}},
-		{"package_name_before_other_fields", `[{"name":"vendor/first","version":"2.0","description":"d"}]`, regions{"vendor/first": {}}},
-		{"package_with_boolean_field", `[{"abandoned":true,"name":"vendor/old"}]`, regions{"vendor/old": {}}},
-		{"package_with_null_field", `[{"homepage":null,"name":"vendor/nohome"}]`, regions{"vendor/nohome": {}}},
+		{"empty_array", `[]`, nil},
+		{"single_package", `[{"name":"vendor/foo"}]`, []string{"vendor/foo"}},
+		{"two_packages", `[{"name":"vendor/foo"},{"name":"vendor/bar"}]`, []string{"vendor/foo", "vendor/bar"}},
+		{"package_with_extra_fields", `[{"version":"1.0","name":"vendor/pkg","description":"d"}]`, []string{"vendor/pkg"}},
+		{"package_name_after_nested_object", `[{"extra":{"x":1},"name":"vendor/nested"}]`, []string{"vendor/nested"}},
+		{"three_packages", `[{"name":"a/b"},{"name":"c/d"},{"name":"e/f"}]`, []string{"a/b", "c/d", "e/f"}},
+		{"package_with_array_field_before_name", `[{"keywords":["x","y"],"name":"vendor/kw"}]`, []string{"vendor/kw"}},
+		{"package_name_before_other_fields", `[{"name":"vendor/first","version":"2.0","description":"d"}]`, []string{"vendor/first"}},
+		{"package_with_boolean_field", `[{"abandoned":true,"name":"vendor/old"}]`, []string{"vendor/old"}},
+		{"package_with_null_field", `[{"homepage":null,"name":"vendor/nohome"}]`, []string{"vendor/nohome"}},
 	}
 
 	for _, tt := range tests {
@@ -322,14 +319,17 @@ func TestParsePackageArray(t *testing.T) {
 			if err := parsePackageArray(dec, data, newlines, regs); err != nil {
 				t.Fatalf("parsePackageArray() unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(slices.Sorted(maps.Keys(tt.want)), slices.Sorted(maps.Keys(regs))); diff != "" {
+			opts := cmp.Options{
+				cmpopts.SortSlices(func(a, b string) bool { return a < b }),
+				cmpopts.EquateEmpty(),
+			}
+			if diff := cmp.Diff(tt.wantRegionKeys, slices.Sorted(maps.Keys(regs)), opts); diff != "" {
 				t.Errorf("parsePackageArray() keys mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
-// TestParsePackageArray_Errors covers error cases.
 func TestParsePackageArray_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -372,6 +372,90 @@ func TestNewRegions(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
+		json string
+		key  string
+		want region
+	}{
+		{
+			"simple",
+			`{
+    "packages": [
+        {"name": "vendor/foo"}
+    ]
+}
+`,
+			"vendor/foo",
+			region{line: 3, startColumn: 10, endColumn: 30, hash: "983435fd84409b6b:1"},
+		},
+		{
+			"nested_name_in_packages_before",
+			`{
+    "packages": [
+        {"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"},
+        {"name":"psr/log"}
+    ]
+}`,
+			"psr/log",
+			region{line: 4, startColumn: 10, endColumn: 26, hash: "5a87f14a83c2596e:1"},
+		},
+		{
+			"nested_name_in_packages_after",
+			`{
+    "packages": [
+        {"name":"psr/log"},
+        {"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}
+    ]
+}`,
+			"psr/log",
+			region{line: 3, startColumn: 10, endColumn: 26, hash: "22ad75b9acc5ec51:1"},
+		},
+		{
+			"nested_name_in_packages_dev_before",
+			`{
+    "packages-dev": [
+        {"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"},
+        {"name":"psr/log"}
+    ]
+}`,
+			"psr/log",
+			region{line: 4, startColumn: 10, endColumn: 26, hash: "5a87f14a83c2596e:1"},
+		},
+		{
+			"nested_name_in_packages_dev_after",
+			`{
+    "packages-dev": [
+        {"name":"psr/log"},
+        {"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}
+    ]
+}`,
+			"psr/log",
+			region{line: 3, startColumn: 10, endColumn: 26, hash: "22ad75b9acc5ec51:1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			regs, err := newRegions(strings.NewReader(tt.json))
+			if err != nil {
+				t.Fatalf("newRegions() unexpected error: %v", err)
+			}
+			got, ok := regs[tt.key]
+			if !ok {
+				t.Fatalf("newRegions() missing key %q", tt.key)
+			}
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(region{})); diff != "" {
+				t.Errorf("newRegions() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestNewRegions_Keys(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
 		name     string
 		json     string
 		wantKeys []string
@@ -392,18 +476,24 @@ func TestNewRegions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			regs, err := newRegions(strings.NewReader(tt.json))
+
+			got, err := newRegions(strings.NewReader(tt.json))
 			if err != nil {
 				t.Fatalf("newRegions() unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(tt.wantKeys, slices.Sorted(maps.Keys(regs)), cmpopts.SortSlices(func(a, b string) bool { return a < b }), cmpopts.EquateEmpty()); diff != "" {
+			gotKeys := slices.Sorted(maps.Keys(got))
+
+			opts := cmp.Options{
+				cmpopts.SortSlices(func(a, b string) bool { return a < b }),
+				cmpopts.EquateEmpty(),
+			}
+			if diff := cmp.Diff(tt.wantKeys, gotKeys, opts); diff != "" {
 				t.Errorf("newRegions() keys mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
-// TestNewRegions_Errors covers error cases.
 func TestNewRegions_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -429,91 +519,6 @@ func TestNewRegions_Errors(t *testing.T) {
 			_, err := newRegions(strings.NewReader(tt.json))
 			if err == nil {
 				t.Fatal("newRegions() unexpected success")
-			}
-		})
-	}
-}
-
-// TestNewRegions_RegionValues verifies line/column number computation.
-func TestNewRegions_RegionValues(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		json string
-		key  string
-		want region
-	}{
-		{
-			"simple",
-			`{
-    "packages": [
-        {"name": "vendor/foo"}
-    ]
-}
-`,
-			"vendor/foo",
-			region{line: 3, startColumn: 10, endColumn: 30},
-		},
-		{
-			"nested_name_in_packages_before",
-			`{
-    "packages": [
-        {"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"},
-        {"name":"psr/log"}
-    ]
-}`,
-			"psr/log",
-			region{line: 4, startColumn: 10, endColumn: 26},
-		},
-		{
-			"nested_name_in_packages_after",
-			`{
-    "packages": [
-        {"name":"psr/log"},
-        {"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}
-    ]
-}`,
-			"psr/log",
-			region{line: 3, startColumn: 10, endColumn: 26},
-		},
-		{
-			"nested_name_in_packages_dev_before",
-			`{
-    "packages-dev": [
-        {"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"},
-        {"name":"psr/log"}
-    ]
-}`,
-			"psr/log",
-			region{line: 4, startColumn: 10, endColumn: 26},
-		},
-		{
-			"nested_name_in_packages_dev_after",
-			`{
-    "packages-dev": [
-        {"name":"psr/log"},
-        {"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}
-    ]
-}`,
-			"psr/log",
-			region{line: 3, startColumn: 10, endColumn: 26},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			regs, err := newRegions(strings.NewReader(tt.json))
-			if err != nil {
-				t.Fatalf("newRegions() unexpected error: %v", err)
-			}
-			got, ok := regs[tt.key]
-			if !ok {
-				t.Fatalf("newRegions() missing key %q", tt.key)
-			}
-			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(region{})); diff != "" {
-				t.Errorf("newRegions() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

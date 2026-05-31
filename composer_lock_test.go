@@ -46,7 +46,6 @@ func TestExpectDelim(t *testing.T) {
 	}
 }
 
-// TestExpectDelim_Errors covers error cases.
 func TestExpectDelim_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -113,7 +112,6 @@ func TestNextJSONString(t *testing.T) {
 	}
 }
 
-// TestNextJSONString_Errors covers error cases.
 func TestNextJSONString_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -242,7 +240,6 @@ func TestLocatePackageRegion(t *testing.T) {
 	}
 }
 
-// TestLocatePackageRegion_Errors covers error cases.
 func TestLocatePackageRegion_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -329,7 +326,6 @@ func TestParsePackageArray(t *testing.T) {
 	}
 }
 
-// TestParsePackageArray_Errors covers error cases.
 func TestParsePackageArray_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -403,7 +399,6 @@ func TestNewRegions(t *testing.T) {
 	}
 }
 
-// TestNewRegions_Errors covers error cases.
 func TestNewRegions_Errors(t *testing.T) {
 	t.Parallel()
 
@@ -434,7 +429,6 @@ func TestNewRegions_Errors(t *testing.T) {
 	}
 }
 
-// TestNewRegions_RegionValues verifies line/column number computation.
 func TestNewRegions_RegionValues(t *testing.T) {
 	t.Parallel()
 
@@ -512,9 +506,8 @@ func TestNewRegions_RegionValues(t *testing.T) {
 			if !ok {
 				t.Fatalf("newRegions() missing key %q", tt.key)
 			}
+			got.hash = ""
 			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(region{})); diff != "" {
-				t.Logf("want=%#v", tt.want)
-				t.Logf(" got=%#v", got)
 				t.Errorf("newRegions() mismatch (-want +got):\n%s", diff)
 			}
 		})

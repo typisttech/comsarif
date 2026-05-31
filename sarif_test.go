@@ -2,7 +2,6 @@ package comsarif
 
 import (
 	"maps"
-	"slices"
 	"strings"
 	"testing"
 
@@ -84,7 +83,7 @@ func TestPrimaryLocationLineHashesByLine(t *testing.T) {
 	}
 }
 
-func TestNewRegionsWithFingerprints(t *testing.T) {
+func TestNewRegionsHashes(t *testing.T) {
 	t.Parallel()
 
 	composerLock := `{
@@ -97,20 +96,16 @@ func TestNewRegionsWithFingerprints(t *testing.T) {
 	  ]
 	}`
 
-	regs, err := newRegionsWithFingerprints(strings.NewReader(composerLock))
+	regs, err := newRegions(strings.NewReader(composerLock))
 	if err != nil {
-		t.Fatalf("newRegionsWithFingerprints() unexpected error: %v", err)
+		t.Fatalf("newRegions() unexpected error: %v", err)
 	}
 
 	lineHashes := primaryLocationLineHashesByLine([]byte(composerLock))
 	for pkg, reg := range regs {
 		if got, want := reg.hash, lineHashes[reg.line]; got != want {
-			t.Errorf("newRegionsWithFingerprints() fingerprint for %q = %q, want %q", pkg, got, want)
+			t.Errorf("newRegions() fingerprint for %q = %q, want %q", pkg, got, want)
 		}
-	}
-
-	if diff := cmp.Diff(slices.Sorted(maps.Keys(regs)), slices.Sorted(maps.Keys(regs))); diff != "" {
-		t.Errorf("newRegionsWithFingerprints() keys mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -273,8 +268,7 @@ func TestAdvisoryFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// embed hashes on regions in production code; tests supply them on regions
-			regsLocal := regs
+			regsLocal := maps.Clone(regs)
 			regsLocal["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
 			regsLocal["a/b"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
 			regsLocal["c/d"] = region{line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"}
@@ -314,7 +308,6 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 		severity:         severityHigh,
 	}
 
-	// tests used to pass fingerprints map; now regions embed hashes
 	regs["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "linehash:1"}
 	rules, results, err := advisoryFindings(regs, aLoc, adv)
 	if err != nil {
@@ -412,7 +405,7 @@ func TestAbandonedFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			regsLocal := regs
+			regsLocal := maps.Clone(regs)
 			regsLocal["vendor/old"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
 			regsLocal["another/pkg"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
 			regsLocal["third/pkg"] = region{line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"}
@@ -586,7 +579,7 @@ func TestBuild(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			regsLocal := regs
+			regsLocal := maps.Clone(regs)
 			regsLocal["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
 			regsLocal["a/b"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
 			regsLocal["vendor/old"] = region{line: 15, startColumn: 3, endColumn: 25, hash: "hash-15:1"}

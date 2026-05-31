@@ -29,35 +29,13 @@ func newRegions(r io.Reader) (regions, error) {
 		return nil, err
 	}
 
-	// Ensure newRegions returns regions without computed fingerprints
-	// (fingerprints are computed only by newRegionsWithFingerprints).
-	for k, r := range regs {
-		if r.hash != "" {
-			r.hash = ""
-			regs[k] = r
-		}
-	}
-
-	return regs, nil
-}
-
-func newRegionsWithFingerprints(r io.Reader) (regions, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
-	}
-
-	regs, err := parseRegions(data)
-	if err != nil {
-		return nil, err
-	}
-
 	lineHashes := primaryLocationLineHashesByLine(data)
 	for pkg, reg := range regs {
 		hash, ok := lineHashes[reg.line]
 		if !ok {
 			return nil, fmt.Errorf("hash composer.lock line %d for package %q", reg.line, pkg)
 		}
+
 		reg.hash = hash
 		regs[pkg] = reg
 	}

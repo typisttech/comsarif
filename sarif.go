@@ -34,7 +34,7 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
 
-	regs, err := newRegionsWithFingerprints(composerLockJSON)
+	regs, err := newRegions(composerLockJSON)
 	if err != nil {
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
@@ -97,7 +97,6 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", adv.packageName)
 		}
-		fingerprint := reg.hash
 
 		pb := sarif.NewPropertyBag().
 			WithTags([]string{"dependency", "security"}).
@@ -117,7 +116,7 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 			WithMessage(sarif.NewTextMessage(adv.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": fingerprint,
+				"primaryLocationLineHash": reg.hash,
 			})
 		results = append(results, result)
 	}
@@ -165,12 +164,12 @@ func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonmen
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", ab.packageName)
 		}
-		fingerprint := reg.hash
+
 		result := sarif.NewRuleResult("abandoned").
 			WithMessage(sarif.NewTextMessage(ab.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": fingerprint,
+				"primaryLocationLineHash": reg.hash,
 			})
 		results = append(results, result)
 	}

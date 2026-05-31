@@ -202,12 +202,12 @@ func TestLocatePackageRegion(t *testing.T) {
 		want    string
 		wantReg region
 	}{
-		{"name_only_field", `{"name":"vendor/pkg"}`, "vendor/pkg", region{1, 2, 21}},
-		{"name_after_other_fields", `{"version":"1.0","name":"vendor/pkg"}`, "vendor/pkg", region{1, 2, 37}},
-		{"name_before_other_fields", `{"name":"vendor/pkg","version":"1.0","description":"foo"}`, "vendor/pkg", region{1, 2, 57}},
-		{"name_with_nested_object_before_it", `{"extra":{"key":"val"},"name":"vendor/nested"}`, "vendor/nested", region{1, 2, 46}},
-		{"name_with_array_field", `{"keywords":["a","b"],"name":"vendor/arr"}`, "vendor/arr", region{1, 2, 42}},
-		{"many_fields_before_name", `{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`, "vendor/many", region{1, 2, 54}},
+		{"name_only_field", `{"name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 21}},
+		{"name_after_other_fields", `{"version":"1.0","name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 37}},
+		{"name_before_other_fields", `{"name":"vendor/pkg","version":"1.0","description":"foo"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 57}},
+		{"name_with_nested_object_before_it", `{"extra":{"key":"val"},"name":"vendor/nested"}`, "vendor/nested", region{line: 1, startColumn: 2, endColumn: 46}},
+		{"name_with_array_field", `{"keywords":["a","b"],"name":"vendor/arr"}`, "vendor/arr", region{line: 1, startColumn: 2, endColumn: 42}},
+		{"many_fields_before_name", `{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`, "vendor/many", region{line: 1, startColumn: 2, endColumn: 54}},
 		{
 			"multiline_object_name_on_own_line",
 			`{
@@ -215,13 +215,13 @@ func TestLocatePackageRegion(t *testing.T) {
 "name":"vendor/multi"
 }`,
 			"vendor/multi",
-			region{3, 1, 22},
+			region{line: 3, startColumn: 1, endColumn: 22},
 		},
-		{"name_with_deeply_nested_field_before_it", `{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`, "vendor/pkg2", region{1, 2, 62}},
-		{"name_with_boolean_field_before_it", `{"abandoned":false,"name":"vendor/pkg3"}`, "vendor/pkg3", region{1, 2, 40}},
-		{"name_with_null_field_before_it", `{"homepage":null,"name":"vendor/pkg4"}`, "vendor/pkg4", region{1, 2, 38}},
-		{"nested_name_inside_extra_before", `{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`, "monolog/monolog", region{1, 2, 61}},
-		{"nested_name_inside_extra_after", `{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`, "monolog/monolog", region{1, 2, 59}},
+		{"name_with_deeply_nested_field_before_it", `{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`, "vendor/pkg2", region{line: 1, startColumn: 2, endColumn: 62}},
+		{"name_with_boolean_field_before_it", `{"abandoned":false,"name":"vendor/pkg3"}`, "vendor/pkg3", region{line: 1, startColumn: 2, endColumn: 40}},
+		{"name_with_null_field_before_it", `{"homepage":null,"name":"vendor/pkg4"}`, "vendor/pkg4", region{line: 1, startColumn: 2, endColumn: 38}},
+		{"nested_name_inside_extra_before", `{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 61}},
+		{"nested_name_inside_extra_after", `{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 59}},
 	}
 
 	for _, tt := range tests {
@@ -513,6 +513,8 @@ func TestNewRegions_RegionValues(t *testing.T) {
 				t.Fatalf("newRegions() missing key %q", tt.key)
 			}
 			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(region{})); diff != "" {
+				t.Logf("want=%#v", tt.want)
+				t.Logf(" got=%#v", got)
 				t.Errorf("newRegions() mismatch (-want +got):\n%s", diff)
 			}
 		})

@@ -34,14 +34,14 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
 
-	regs, fingerprints, err := newRegionsWithFingerprints(composerLockJSON)
+	regs, err := newRegionsWithFingerprints(composerLockJSON)
 	if err != nil {
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
 
 	aLoc := sarif.NewSimpleArtifactLocation(lockURI)
 
-	rules, results, err := build(aud, regs, fingerprints, aLoc)
+	rules, results, err := build(aud, regs, aLoc)
 	if err != nil {
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
@@ -65,11 +65,11 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 	return report, nil
 }
 
-func build(aud audit, regs regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(aud.advisories)+1)
 	results := make([]*sarif.Result, 0, len(aud.advisories)+len(aud.abandonments))
 
-	advRules, advResults, err := advisoryFindings(regs, fingerprints, aLoc, aud.advisories...)
+	advRules, advResults, err := advisoryFindings(regs, aLoc, aud.advisories...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +77,7 @@ func build(aud audit, regs regions, fingerprints map[string]string, aLoc *sarif.
 	results = append(results, advResults...)
 
 	if len(aud.abandonments) > 0 {
-		abRule, abResults, err := abandonedFindings(regs, fingerprints, aLoc, aud.abandonments)
+		abRule, abResults, err := abandonedFindings(regs, aLoc, aud.abandonments)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -88,7 +88,7 @@ func build(aud audit, regs regions, fingerprints map[string]string, aLoc *sarif.
 	return rules, results, nil
 }
 
-func advisoryFindings(regions regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation, advisories ...advisory) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories ...advisory) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(advisories))
 	results := make([]*sarif.Result, 0, len(advisories))
 
@@ -97,10 +97,7 @@ func advisoryFindings(regions regions, fingerprints map[string]string, aLoc *sar
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", adv.packageName)
 		}
-		fingerprint, ok := fingerprints[adv.packageName]
-		if !ok {
-			return nil, nil, fmt.Errorf("fingerprint for package %q not found in composer.lock", adv.packageName)
-		}
+		fingerprint := reg.hash
 
 		pb := sarif.NewPropertyBag().
 			WithTags([]string{"dependency", "security"}).
@@ -151,7 +148,7 @@ func newLocation(region region, aLoc *sarif.ArtifactLocation) *sarif.Location {
 	return sarif.NewLocationWithPhysicalLocation(l)
 }
 
-func abandonedFindings(regions regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation, abandonments []abandonment) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonments []abandonment) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	pb := sarif.NewPropertyBag().
 		AddTag("dependency").
 		Add("precision", "very-high")
@@ -168,11 +165,7 @@ func abandonedFindings(regions regions, fingerprints map[string]string, aLoc *sa
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", ab.packageName)
 		}
-		fingerprint, ok := fingerprints[ab.packageName]
-		if !ok {
-			return nil, nil, fmt.Errorf("fingerprint for package %q not found in composer.lock", ab.packageName)
-		}
-
+		fingerprint := reg.hash
 		result := sarif.NewRuleResult("abandoned").
 			WithMessage(sarif.NewTextMessage(ab.message())).
 			AddLocation(newLocation(reg, aLoc)).

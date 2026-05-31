@@ -97,19 +97,19 @@ func TestNewRegionsWithFingerprints(t *testing.T) {
 	  ]
 	}`
 
-	regs, fingerprints, err := newRegionsWithFingerprints(strings.NewReader(composerLock))
+	regs, err := newRegionsWithFingerprints(strings.NewReader(composerLock))
 	if err != nil {
 		t.Fatalf("newRegionsWithFingerprints() unexpected error: %v", err)
 	}
 
 	lineHashes := primaryLocationLineHashesByLine([]byte(composerLock))
 	for pkg, reg := range regs {
-		if got, want := fingerprints[pkg], lineHashes[reg.line]; got != want {
+		if got, want := reg.hash, lineHashes[reg.line]; got != want {
 			t.Errorf("newRegionsWithFingerprints() fingerprint for %q = %q, want %q", pkg, got, want)
 		}
 	}
 
-	if diff := cmp.Diff(slices.Sorted(maps.Keys(regs)), slices.Sorted(maps.Keys(fingerprints))); diff != "" {
+	if diff := cmp.Diff(slices.Sorted(maps.Keys(regs)), slices.Sorted(maps.Keys(regs))); diff != "" {
 		t.Errorf("newRegionsWithFingerprints() keys mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -273,8 +273,12 @@ func TestAdvisoryFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			fingerprints := map[string]string{"vendor/pkg": "hash-5:1", "a/b": "hash-10:1", "c/d": "hash-20:1"}
-			rules, results, err := advisoryFindings(regs, fingerprints, aLoc, tt.advisories...)
+			// embed hashes on regions in production code; tests supply them on regions
+			regsLocal := regs
+			regsLocal["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
+			regsLocal["a/b"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
+			regsLocal["c/d"] = region{line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"}
+			rules, results, err := advisoryFindings(regsLocal, aLoc, tt.advisories...)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("advisoryFindings() unexpected success")
@@ -310,8 +314,9 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 		severity:         severityHigh,
 	}
 
-	fingerprints := map[string]string{"vendor/pkg": "linehash:1"}
-	rules, results, err := advisoryFindings(regs, fingerprints, aLoc, adv)
+	// tests used to pass fingerprints map; now regions embed hashes
+	regs["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "linehash:1"}
+	rules, results, err := advisoryFindings(regs, aLoc, adv)
 	if err != nil {
 		t.Fatalf("advisoryFindings() unexpected error: %v", err)
 	}
@@ -407,8 +412,11 @@ func TestAbandonedFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			fingerprints := map[string]string{"vendor/old": "hash-5:1", "another/pkg": "hash-10:1", "third/pkg": "hash-20:1"}
-			rule, results, err := abandonedFindings(regs, fingerprints, aLoc, tt.abandonments)
+			regsLocal := regs
+			regsLocal["vendor/old"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
+			regsLocal["another/pkg"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
+			regsLocal["third/pkg"] = region{line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"}
+			rule, results, err := abandonedFindings(regsLocal, aLoc, tt.abandonments)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("abandonedFindings() unexpected success")
@@ -440,8 +448,8 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 	}
 
 	ab := abandonment{packageName: "vendor/old", replacement: "vendor/new"}
-	fingerprints := map[string]string{"vendor/old": "linehash:1"}
-	rule, results, err := abandonedFindings(regs, fingerprints, aLoc, []abandonment{ab})
+	regs["vendor/old"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "linehash:1"}
+	rule, results, err := abandonedFindings(regs, aLoc, []abandonment{ab})
 	if err != nil {
 		t.Fatalf("abandonedFindings() unexpected error: %v", err)
 	}
@@ -578,8 +586,11 @@ func TestBuild(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			fingerprints := map[string]string{"vendor/pkg": "hash-5:1", "a/b": "hash-10:1", "vendor/old": "hash-15:1"}
-			rules, results, err := build(tt.aud, regs, fingerprints, aLoc)
+			regsLocal := regs
+			regsLocal["vendor/pkg"] = region{line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"}
+			regsLocal["a/b"] = region{line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"}
+			regsLocal["vendor/old"] = region{line: 15, startColumn: 3, endColumn: 25, hash: "hash-15:1"}
+			rules, results, err := build(tt.aud, regsLocal, aLoc)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("build() unexpected success")

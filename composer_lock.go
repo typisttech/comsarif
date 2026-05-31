@@ -15,39 +15,54 @@ type region struct {
 	line        int
 	startColumn int
 	endColumn   int
+	hash        string
 }
 
 func newRegions(r io.Reader) (regions, error) {
-	regs, _, err := newRegionsWithFingerprints(r)
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
+	}
+
+	regs, err := parseRegions(data)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure newRegions returns regions without computed fingerprints
+	// (fingerprints are computed only by newRegionsWithFingerprints).
+	for k, r := range regs {
+		if r.hash != "" {
+			r.hash = ""
+			regs[k] = r
+		}
 	}
 
 	return regs, nil
 }
 
-func newRegionsWithFingerprints(r io.Reader) (regions, map[string]string, error) {
+func newRegionsWithFingerprints(r io.Reader) (regions, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read composer.lock JSON: %v", err)
+		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
 	}
 
 	regs, err := parseRegions(data)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	lineHashes := primaryLocationLineHashesByLine(data)
-	fingerprints := make(map[string]string, len(regs))
 	for pkg, reg := range regs {
 		hash, ok := lineHashes[reg.line]
 		if !ok {
-			return nil, nil, fmt.Errorf("hash composer.lock line %d for package %q", reg.line, pkg)
+			return nil, fmt.Errorf("hash composer.lock line %d for package %q", reg.line, pkg)
 		}
-		fingerprints[pkg] = hash
+		reg.hash = hash
+		regs[pkg] = reg
 	}
 
-	return regs, fingerprints, nil
+	return regs, nil
 }
 
 func parseRegions(data []byte) (regions, error) {

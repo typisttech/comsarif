@@ -1,14 +1,32 @@
 package comsarif
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"strings"
+	"math/bits"
+	"unicode/utf16"
 
 	"github.com/owenrumney/go-sarif/v3/pkg/report/v210/sarif"
 )
+
+const (
+	lineHashBlockSize = 100
+	lineHashMod       = uint64(37)
+	lineHashEOF       = uint64(65535)
+)
+
+type primaryLocationLineHasher struct {
+	window      [lineHashBlockSize]uint64
+	lineNumbers [lineHashBlockSize]int
+	hashCounts  map[string]int
+	lineHashes  map[int]string
+	firstMod    uint64
+	hashRaw     uint64
+	index       int
+	lineNumber  int
+	lineStart   bool
+	prevCR      bool
+}
 
 func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (*sarif.Report, error) {
 	aud, err := newAudit(auditJSON)
@@ -16,14 +34,14 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
 
-	regs, err := newRegions(composerLockJSON)
+	regs, fingerprints, err := newRegionsWithFingerprints(composerLockJSON)
 	if err != nil {
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
 
 	aLoc := sarif.NewSimpleArtifactLocation(lockURI)
 
-	rules, results, err := build(aud, regs, aLoc)
+	rules, results, err := build(aud, regs, fingerprints, aLoc)
 	if err != nil {
 		return nil, fmt.Errorf("generate new report: %v", err)
 	}
@@ -47,11 +65,11 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 	return report, nil
 }
 
-func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func build(aud audit, regs regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(aud.advisories)+1)
 	results := make([]*sarif.Result, 0, len(aud.advisories)+len(aud.abandonments))
 
-	advRules, advResults, err := advisoryFindings(regs, aLoc, aud.advisories...)
+	advRules, advResults, err := advisoryFindings(regs, fingerprints, aLoc, aud.advisories...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,7 +77,7 @@ func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.Repo
 	results = append(results, advResults...)
 
 	if len(aud.abandonments) > 0 {
-		abRule, abResults, err := abandonedFindings(regs, aLoc, aud.abandonments)
+		abRule, abResults, err := abandonedFindings(regs, fingerprints, aLoc, aud.abandonments)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -70,7 +88,7 @@ func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.Repo
 	return rules, results, nil
 }
 
-func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories ...advisory) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func advisoryFindings(regions regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation, advisories ...advisory) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(advisories))
 	results := make([]*sarif.Result, 0, len(advisories))
 
@@ -78,6 +96,10 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 		reg, ok := regions[adv.packageName]
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", adv.packageName)
+		}
+		fingerprint, ok := fingerprints[adv.packageName]
+		if !ok {
+			return nil, nil, fmt.Errorf("fingerprint for package %q not found in composer.lock", adv.packageName)
 		}
 
 		pb := sarif.NewPropertyBag().
@@ -98,7 +120,7 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 			WithMessage(sarif.NewTextMessage(adv.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": hashStable("advisory", adv.packageName),
+				"primaryLocationLineHash": fingerprint,
 			})
 		results = append(results, result)
 	}
@@ -129,7 +151,7 @@ func newLocation(region region, aLoc *sarif.ArtifactLocation) *sarif.Location {
 	return sarif.NewLocationWithPhysicalLocation(l)
 }
 
-func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonments []abandonment) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func abandonedFindings(regions regions, fingerprints map[string]string, aLoc *sarif.ArtifactLocation, abandonments []abandonment) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	pb := sarif.NewPropertyBag().
 		AddTag("dependency").
 		Add("precision", "very-high")
@@ -146,12 +168,16 @@ func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonmen
 		if !ok {
 			return nil, nil, fmt.Errorf("package %q not found in composer.lock", ab.packageName)
 		}
+		fingerprint, ok := fingerprints[ab.packageName]
+		if !ok {
+			return nil, nil, fmt.Errorf("fingerprint for package %q not found in composer.lock", ab.packageName)
+		}
 
 		result := sarif.NewRuleResult("abandoned").
 			WithMessage(sarif.NewTextMessage(ab.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": hashStable("abandoned", ab.packageName),
+				"primaryLocationLineHash": fingerprint,
 			})
 		results = append(results, result)
 	}
@@ -159,7 +185,101 @@ func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonmen
 	return rule, results, nil
 }
 
-func hashStable(parts ...string) string {
-	h := sha256.Sum256([]byte(strings.Join(parts, "$$$")))
-	return hex.EncodeToString(h[:])
+func primaryLocationLineHashesByLine(data []byte) map[int]string {
+	hasher := newPrimaryLocationLineHasher()
+
+	for _, codeUnit := range utf16.Encode([]rune(string(data))) {
+		hasher.processCharacter(uint64(codeUnit))
+	}
+	hasher.processCharacter(lineHashEOF)
+
+	for i := 0; i < lineHashBlockSize; i++ {
+		hasher.flush()
+	}
+
+	return hasher.lineHashes
+}
+
+func newPrimaryLocationLineHasher() *primaryLocationLineHasher {
+	hasher := &primaryLocationLineHasher{
+		hashCounts: make(map[string]int),
+		lineHashes: make(map[int]string),
+		firstMod:   lineHashFirstMod(),
+		lineStart:  true,
+	}
+	for i := range hasher.lineNumbers {
+		hasher.lineNumbers[i] = -1
+	}
+	return hasher
+}
+
+func (h *primaryLocationLineHasher) flush() {
+	if h.lineNumbers[h.index] != -1 {
+		h.outputHash()
+	}
+	h.updateHash(0)
+}
+
+func (h *primaryLocationLineHasher) outputHash() {
+	hashValue := fmt.Sprintf("%x", h.hashRaw)
+	h.hashCounts[hashValue]++
+	h.lineHashes[h.lineNumbers[h.index]] = fmt.Sprintf("%s:%d", hashValue, h.hashCounts[hashValue])
+	h.lineNumbers[h.index] = -1
+}
+
+func (h *primaryLocationLineHasher) updateHash(current uint64) {
+	begin := h.window[h.index]
+	h.window[h.index] = current
+	h.hashRaw = mulAddSubMod37(h.hashRaw, current, begin, h.firstMod)
+	h.index = (h.index + 1) % lineHashBlockSize
+}
+
+func (h *primaryLocationLineHasher) processCharacter(current uint64) {
+	if h.shouldSkipCharacter(current) {
+		h.prevCR = false
+		return
+	}
+	current = h.normalizeCharacter(current)
+	if h.lineNumbers[h.index] != -1 {
+		h.outputHash()
+	}
+	if h.lineStart {
+		h.lineStart = false
+		h.lineNumber++
+		h.lineNumbers[h.index] = h.lineNumber
+	}
+	if current == '\n' {
+		h.lineStart = true
+	}
+	h.updateHash(current)
+}
+
+func (h *primaryLocationLineHasher) shouldSkipCharacter(current uint64) bool {
+	return current == ' ' || current == '\t' || (h.prevCR && current == '\n')
+}
+
+func (h *primaryLocationLineHasher) normalizeCharacter(current uint64) uint64 {
+	if current == '\r' {
+		h.prevCR = true
+		return '\n'
+	}
+	h.prevCR = false
+	return current
+}
+
+func lineHashFirstMod() uint64 {
+	firstMod := uint64(1)
+	for i := 0; i < lineHashBlockSize; i++ {
+		firstMod *= lineHashMod
+	}
+	return firstMod
+}
+
+func mulAddSubMod37(hashRaw, current, begin, firstMod uint64) uint64 {
+	hi, lo := bits.Mul64(lineHashMod, hashRaw)
+	lo, _ = bits.Add64(lo, current, 0)
+	productHi, productLo := bits.Mul64(firstMod, begin)
+	lo, borrow := bits.Sub64(lo, productLo, 0)
+	_, _ = bits.Sub64(hi, productHi, borrow)
+	return lo
 }

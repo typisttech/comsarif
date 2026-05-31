@@ -1,8 +1,8 @@
 package comsarif
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,63 +47,70 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-func sha256hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
-}
-
-func TestHashStable(t *testing.T) {
+func TestPrimaryLocationLineHashesByLine(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name  string
-		parts []string
-		want  string
+		input string
+		want  []string
 	}{
-		{"single_part", []string{"hello"}, sha256hex("hello")},
-		{"two_parts", []string{"advisory", "vendor/pkg"}, sha256hex("advisory$$$vendor/pkg")},
-		{"three_parts", []string{"a", "b", "c"}, sha256hex("a$$$b$$$c")},
-		{"empty_string_part", []string{""}, sha256hex("")},
-		{"all_empty_parts", []string{"", "", ""}, sha256hex("$$$$$$")},
-		{"order_matters", []string{"b", "a"}, sha256hex("b$$$a")},
-		{"deterministic_same_inputs", []string{"abandoned", "vendor/old"}, sha256hex("abandoned$$$vendor/old")},
-		{"part_containing_delimiter", []string{"a$$$b"}, sha256hex("a$$$b")},
-		{"delimiter_inside_differs_from_split", []string{"a$$$b", "c"}, sha256hex("a$$$b$$$c")},
-		{"unicode_parts", []string{"漢字", "pkg"}, sha256hex("漢字$$$pkg")},
-		{"advisory_and_package_name", []string{"advisory", "foo/bar"}, sha256hex("advisory$$$foo/bar")},
-		{"single_empty", []string{""}, sha256hex("")},
+		{"empty_file", "", []string{"c129715d7a2bc9a3:1"}},
+		{"newline_variants_a", " a\nb\n  \t\tc\n d", []string{"271789c17abda88f:1", "54703d4cd895b18:1", "180aee12dab6264:1", "a23a3dc5e078b07b:1"}},
+		{"newline_variants_b", " hello; \t\nworld!!!\n\n\n  \t\tGreetings\n End", []string{"8b7cf3e952e7aeb2:1", "b1ae1287ec4718d9:1", "bff680108adb0fcc:1", "c6805c5e1288b612:1", "b86d3392aea1be30:1", "e6ceba753e1a442:1"}},
+		{"trailing_newline_lf", " hello; \t\nworld!!!\n\n\n  \t\tGreetings\n End\n", []string{"e9496ae3ebfced30:1", "fb7c023a8b9ccb3f:1", "ce8ba1a563dcdaca:1", "e20e36e16fcb0cc8:1", "b3edc88f2938467e:1", "c8e28b0b4002a3a0:1", "c129715d7a2bc9a3:1"}},
+		{"trailing_newline_cr", " hello; \t\nworld!!!\r\r\r  \t\tGreetings\r End\r", []string{"e9496ae3ebfced30:1", "fb7c023a8b9ccb3f:1", "ce8ba1a563dcdaca:1", "e20e36e16fcb0cc8:1", "b3edc88f2938467e:1", "c8e28b0b4002a3a0:1", "c129715d7a2bc9a3:1"}},
+		{"trailing_newline_crlf", " hello; \t\r\nworld!!!\r\n\r\n\r\n  \t\tGreetings\r\n End\r\n", []string{"e9496ae3ebfced30:1", "fb7c023a8b9ccb3f:1", "ce8ba1a563dcdaca:1", "e20e36e16fcb0cc8:1", "b3edc88f2938467e:1", "c8e28b0b4002a3a0:1", "c129715d7a2bc9a3:1"}},
+		{"mixed_newlines", " hello; \t\nworld!!!\r\n\n\r  \t\tGreetings\r End\r\n", []string{"e9496ae3ebfced30:1", "fb7c023a8b9ccb3f:1", "ce8ba1a563dcdaca:1", "e20e36e16fcb0cc8:1", "b3edc88f2938467e:1", "c8e28b0b4002a3a0:1", "c129715d7a2bc9a3:1"}},
+		{"repeated_lines", strings.Repeat("Lorem ipsum dolor sit amet.\n", 10), []string{"a7f2ff13bc495cf2:1", "a7f2ff13bc495cf2:2", "a7f2ff13bc495cf2:3", "a7f2ff13bc495cf2:4", "a7f2ff13bc495cf2:5", "a7f2ff13bc495cf2:6", "a7f2ff1481e87703:1", "a9cf91f7bbf1862b:1", "55ec222b86bcae53:1", "cc97dc7b1d7d8f7b:1", "c129715d7a2bc9a3:1"}},
+		{"sample_program", "x = 2\nx = 1\nprint(x)\nx = 3\nprint(x)\nx = 4\nprint(x)\n", []string{"e54938cc54b302f1:1", "bb609acbe9138d60:1", "1131fd5871777f34:1", "5c482a0f8b35ea28:1", "54517377da7028d2:1", "2c644846cb18d53e:1", "f1b89f20de0d133:1", "c129715d7a2bc9a3:1"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := hashStable(tt.parts...)
-			if got != tt.want {
-				t.Errorf("hashStable(%v) = %q, want %q", tt.parts, got, tt.want)
+			gotByLine := primaryLocationLineHashesByLine([]byte(tt.input))
+			got := make([]string, len(tt.want))
+			for i := range tt.want {
+				got[i] = gotByLine[i+1]
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("primaryLocationLineHashesByLine() mismatch (-want +got):\n%s", diff)
+			}
+			if len(gotByLine) != len(tt.want) {
+				t.Errorf("primaryLocationLineHashesByLine() returned %d lines, want %d", len(gotByLine), len(tt.want))
 			}
 		})
 	}
 }
 
-func TestHashStableOrderDifference(t *testing.T) {
+func TestNewRegionsWithFingerprints(t *testing.T) {
 	t.Parallel()
 
-	h1 := hashStable("a", "b")
-	h2 := hashStable("b", "a")
-	if h1 == h2 {
-		t.Error("hashStable() a,b should differ from b,a")
+	composerLock := `{
+	  "packages": [
+	    {"name": "vendor/pkg"},
+	    {"name": "vendor/pkg-two"}
+	  ],
+	  "packages-dev": [
+	    {"name": "vendor/dev"}
+	  ]
+	}`
+
+	regs, fingerprints, err := newRegionsWithFingerprints(strings.NewReader(composerLock))
+	if err != nil {
+		t.Fatalf("newRegionsWithFingerprints() unexpected error: %v", err)
 	}
-}
 
-func TestHashStableDeterministic(t *testing.T) {
-	t.Parallel()
-
-	for range 10 {
-		h1 := hashStable("advisory", "vendor/pkg")
-		h2 := hashStable("advisory", "vendor/pkg")
-		if h1 != h2 {
-			t.Error("hashStable() not deterministic")
+	lineHashes := primaryLocationLineHashesByLine([]byte(composerLock))
+	for pkg, reg := range regs {
+		if got, want := fingerprints[pkg], lineHashes[reg.line]; got != want {
+			t.Errorf("newRegionsWithFingerprints() fingerprint for %q = %q, want %q", pkg, got, want)
 		}
+	}
+
+	if diff := cmp.Diff(slices.Sorted(maps.Keys(regs)), slices.Sorted(maps.Keys(fingerprints))); diff != "" {
+		t.Errorf("newRegionsWithFingerprints() keys mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -266,7 +273,8 @@ func TestAdvisoryFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rules, results, err := advisoryFindings(regs, aLoc, tt.advisories...)
+			fingerprints := map[string]string{"vendor/pkg": "hash-5:1", "a/b": "hash-10:1", "c/d": "hash-20:1"}
+			rules, results, err := advisoryFindings(regs, fingerprints, aLoc, tt.advisories...)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("advisoryFindings() unexpected success")
@@ -302,7 +310,8 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 		severity:         severityHigh,
 	}
 
-	rules, results, err := advisoryFindings(regs, aLoc, adv)
+	fingerprints := map[string]string{"vendor/pkg": "linehash:1"}
+	rules, results, err := advisoryFindings(regs, fingerprints, aLoc, adv)
 	if err != nil {
 		t.Fatalf("advisoryFindings() unexpected error: %v", err)
 	}
@@ -324,8 +333,8 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 	}
 
 	fp := results[0].PartialFingerprints
-	if _, ok := fp["primaryLocationLineHash"]; !ok {
-		t.Error("advisoryFindings() result missing primaryLocationLineHash fingerprint")
+	if got := fp["primaryLocationLineHash"]; got != "linehash:1" {
+		t.Errorf("advisoryFindings() result fingerprint = %q, want %q", got, "linehash:1")
 	}
 }
 
@@ -398,7 +407,8 @@ func TestAbandonedFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rule, results, err := abandonedFindings(regs, aLoc, tt.abandonments)
+			fingerprints := map[string]string{"vendor/old": "hash-5:1", "another/pkg": "hash-10:1", "third/pkg": "hash-20:1"}
+			rule, results, err := abandonedFindings(regs, fingerprints, aLoc, tt.abandonments)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("abandonedFindings() unexpected success")
@@ -430,7 +440,8 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 	}
 
 	ab := abandonment{packageName: "vendor/old", replacement: "vendor/new"}
-	rule, results, err := abandonedFindings(regs, aLoc, []abandonment{ab})
+	fingerprints := map[string]string{"vendor/old": "linehash:1"}
+	rule, results, err := abandonedFindings(regs, fingerprints, aLoc, []abandonment{ab})
 	if err != nil {
 		t.Fatalf("abandonedFindings() unexpected error: %v", err)
 	}
@@ -452,8 +463,8 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 	if res.Message.Text == nil || !strings.Contains(*res.Message.Text, "vendor/old") {
 		t.Errorf("abandonedFindings() result message missing vendor/old: %v", res.Message.Text)
 	}
-	if _, ok := res.PartialFingerprints["primaryLocationLineHash"]; !ok {
-		t.Error("abandonedFindings() result missing primaryLocationLineHash fingerprint")
+	if got := res.PartialFingerprints["primaryLocationLineHash"]; got != "linehash:1" {
+		t.Errorf("abandonedFindings() result fingerprint = %q, want %q", got, "linehash:1")
 	}
 }
 
@@ -567,7 +578,8 @@ func TestBuild(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rules, results, err := build(tt.aud, regs, aLoc)
+			fingerprints := map[string]string{"vendor/pkg": "hash-5:1", "a/b": "hash-10:1", "vendor/old": "hash-15:1"}
+			rules, results, err := build(tt.aud, regs, fingerprints, aLoc)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("build() unexpected success")

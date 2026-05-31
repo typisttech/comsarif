@@ -18,11 +18,39 @@ type region struct {
 }
 
 func newRegions(r io.Reader) (regions, error) {
-	data, err := io.ReadAll(r)
+	regs, _, err := newRegionsWithFingerprints(r)
 	if err != nil {
-		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
+		return nil, err
 	}
 
+	return regs, nil
+}
+
+func newRegionsWithFingerprints(r io.Reader) (regions, map[string]string, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read composer.lock JSON: %v", err)
+	}
+
+	regs, err := parseRegions(data)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	lineHashes := primaryLocationLineHashesByLine(data)
+	fingerprints := make(map[string]string, len(regs))
+	for pkg, reg := range regs {
+		hash, ok := lineHashes[reg.line]
+		if !ok {
+			return nil, nil, fmt.Errorf("hash composer.lock line %d for package %q", reg.line, pkg)
+		}
+		fingerprints[pkg] = hash
+	}
+
+	return regs, fingerprints, nil
+}
+
+func parseRegions(data []byte) (regions, error) {
 	// TODO: Find a way to read it in chunks instead of io.ReadAll
 	lineBreaks := make([]int, 0, bytes.Count(data, []byte("\n")))
 	for i, b := range data {

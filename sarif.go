@@ -1,11 +1,8 @@
 package comsarif
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/owenrumney/go-sarif/v3/pkg/report/v210/sarif"
 )
@@ -98,7 +95,7 @@ func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories 
 			WithMessage(sarif.NewTextMessage(adv.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": hashStable("advisory", adv.packageName),
+				"primaryLocationLineHash": reg.hash,
 			})
 		results = append(results, result)
 	}
@@ -151,15 +148,10 @@ func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonmen
 			WithMessage(sarif.NewTextMessage(ab.message())).
 			AddLocation(newLocation(reg, aLoc)).
 			WithPartialFingerprints(map[string]string{
-				"primaryLocationLineHash": hashStable("abandoned", ab.packageName),
+				"primaryLocationLineHash": reg.hash,
 			})
 		results = append(results, result)
 	}
 
 	return rule, results, nil
-}
-
-func hashStable(parts ...string) string {
-	h := sha256.Sum256([]byte(strings.Join(parts, "$$$")))
-	return hex.EncodeToString(h[:])
 }

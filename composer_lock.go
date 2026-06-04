@@ -15,6 +15,7 @@ type region struct {
 	line        int
 	startColumn int
 	endColumn   int
+	hash        string
 }
 
 func newRegions(r io.Reader) (regions, error) {
@@ -23,6 +24,26 @@ func newRegions(r io.Reader) (regions, error) {
 		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
 	}
 
+	regs, err := parseRegions(data)
+	if err != nil {
+		return nil, err
+	}
+
+	lineHashes := primaryLocationLineHashesByLine(data)
+	for pkg, reg := range regs {
+		hash, ok := lineHashes[reg.line]
+		if !ok {
+			return nil, fmt.Errorf("hash composer.lock line %d for package %q", reg.line, pkg)
+		}
+
+		reg.hash = hash
+		regs[pkg] = reg
+	}
+
+	return regs, nil
+}
+
+func parseRegions(data []byte) (regions, error) {
 	// TODO: Find a way to read it in chunks instead of io.ReadAll
 	lineBreaks := make([]int, 0, bytes.Count(data, []byte("\n")))
 	for i, b := range data {

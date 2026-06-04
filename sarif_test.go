@@ -1,8 +1,6 @@
 package comsarif
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -47,70 +45,34 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-func sha256hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
-}
-
-func TestHashStable(t *testing.T) {
+func TestNewRegionsHashes(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name  string
-		parts []string
-		want  string
-	}{
-		{"single_part", []string{"hello"}, sha256hex("hello")},
-		{"two_parts", []string{"advisory", "vendor/pkg"}, sha256hex("advisory$$$vendor/pkg")},
-		{"three_parts", []string{"a", "b", "c"}, sha256hex("a$$$b$$$c")},
-		{"empty_string_part", []string{""}, sha256hex("")},
-		{"all_empty_parts", []string{"", "", ""}, sha256hex("$$$$$$")},
-		{"order_matters", []string{"b", "a"}, sha256hex("b$$$a")},
-		{"deterministic_same_inputs", []string{"abandoned", "vendor/old"}, sha256hex("abandoned$$$vendor/old")},
-		{"part_containing_delimiter", []string{"a$$$b"}, sha256hex("a$$$b")},
-		{"delimiter_inside_differs_from_split", []string{"a$$$b", "c"}, sha256hex("a$$$b$$$c")},
-		{"unicode_parts", []string{"漢字", "pkg"}, sha256hex("漢字$$$pkg")},
-		{"advisory_and_package_name", []string{"advisory", "foo/bar"}, sha256hex("advisory$$$foo/bar")},
-		{"single_empty", []string{""}, sha256hex("")},
+	composerLock := `{
+	  "packages": [
+	    {"name": "vendor/pkg"},
+	    {"name": "vendor/pkg-two"}
+	  ],
+	  "packages-dev": [
+	    {"name": "vendor/dev"}
+	  ]
+	}`
+
+	regs, err := newRegions(strings.NewReader(composerLock))
+	if err != nil {
+		t.Fatalf("newRegions() unexpected error: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := hashStable(tt.parts...)
-			if got != tt.want {
-				t.Errorf("hashStable(%v) = %q, want %q", tt.parts, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHashStableOrderDifference(t *testing.T) {
-	t.Parallel()
-
-	h1 := hashStable("a", "b")
-	h2 := hashStable("b", "a")
-	if h1 == h2 {
-		t.Error("hashStable() a,b should differ from b,a")
-	}
-}
-
-func TestHashStableDeterministic(t *testing.T) {
-	t.Parallel()
-
-	for range 10 {
-		h1 := hashStable("advisory", "vendor/pkg")
-		h2 := hashStable("advisory", "vendor/pkg")
-		if h1 != h2 {
-			t.Error("hashStable() not deterministic")
+	lineHashes := primaryLocationLineHashesByLine([]byte(composerLock))
+	for pkg, reg := range regs {
+		if got, want := reg.hash, lineHashes[reg.line]; got != want {
+			t.Errorf("newRegions() fingerprint for %q = %q, want %q", pkg, got, want)
 		}
 	}
 }
 
 func TestNewLocation(t *testing.T) {
 	t.Parallel()
-
-	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
 
 	tests := []struct {
 		name            string
@@ -119,29 +81,34 @@ func TestNewLocation(t *testing.T) {
 		wantStartColumn *int
 		wantEndColumn   *int
 	}{
-		{"basic_region", region{line: 10, startColumn: 5, endColumn: 20}, new(10), new(5), new(20)},
-		{"line_1", region{line: 1, startColumn: 1, endColumn: 10}, new(1), new(1), new(10)},
-		{"zero_values", region{line: 0, startColumn: 0, endColumn: 0}, new(0), new(0), new(0)},
-		{"large_line_number", region{line: 9999, startColumn: 3, endColumn: 50}, new(9999), new(3), new(50)},
-		{"start_equals_end_column", region{line: 5, startColumn: 7, endColumn: 7}, new(5), new(7), new(7)},
-		{"end_column_less_than_start", region{line: 2, startColumn: 15, endColumn: 3}, new(2), new(15), new(3)},
-		{"single_char_region", region{line: 3, startColumn: 1, endColumn: 2}, new(3), new(1), new(2)},
-		{"line_100", region{line: 100, startColumn: 10, endColumn: 40}, new(100), new(10), new(40)},
-		{"wide_column_range", region{line: 50, startColumn: 1, endColumn: 1000}, new(50), new(1), new(1000)},
-		{"all_ones", region{line: 1, startColumn: 1, endColumn: 1}, new(1), new(1), new(1)},
+		{"basic_region", region{line: 10, startColumn: 5, endColumn: 20, hash: "dummy"}, new(10), new(5), new(20)},
+		{"line_1", region{line: 1, startColumn: 1, endColumn: 10, hash: "dummy"}, new(1), new(1), new(10)},
+		{"zero_values", region{line: 0, startColumn: 0, endColumn: 0, hash: "dummy"}, new(0), new(0), new(0)},
+		{"large_line_number", region{line: 9999, startColumn: 3, endColumn: 50, hash: "dummy"}, new(9999), new(3), new(50)},
+		{"start_equals_end_column", region{line: 5, startColumn: 7, endColumn: 7, hash: "dummy"}, new(5), new(7), new(7)},
+		{"end_column_less_than_start", region{line: 2, startColumn: 15, endColumn: 3, hash: "dummy"}, new(2), new(15), new(3)},
+		{"single_char_region", region{line: 3, startColumn: 1, endColumn: 2, hash: "dummy"}, new(3), new(1), new(2)},
+		{"line_100", region{line: 100, startColumn: 10, endColumn: 40, hash: "dummy"}, new(100), new(10), new(40)},
+		{"wide_column_range", region{line: 50, startColumn: 1, endColumn: 1000, hash: "dummy"}, new(50), new(1), new(1000)},
+		{"all_ones", region{line: 1, startColumn: 1, endColumn: 1, hash: "dummy"}, new(1), new(1), new(1)},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
+
 			loc := newLocation(tt.reg, aLoc)
 			if loc == nil {
 				t.Fatal("newLocation() returned nil")
 			}
+
 			pl := loc.PhysicalLocation
 			if pl == nil {
 				t.Fatal("newLocation() PhysicalLocation is nil")
 			}
+
 			r := pl.Region
 			if r == nil {
 				t.Fatal("newLocation() Region is nil")
@@ -161,14 +128,6 @@ func TestNewLocation(t *testing.T) {
 
 func TestAdvisoryFindings(t *testing.T) {
 	t.Parallel()
-
-	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
-
-	regs := regions{
-		"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20},
-		"a/b":        {line: 10, startColumn: 2, endColumn: 15},
-		"c/d":        {line: 20, startColumn: 3, endColumn: 25},
-	}
 
 	tests := []struct {
 		name        string
@@ -266,6 +225,14 @@ func TestAdvisoryFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
+			regs := regions{
+				"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"},
+				"a/b":        {line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"},
+				"c/d":        {line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"},
+			}
+
 			rules, results, err := advisoryFindings(regs, aLoc, tt.advisories...)
 			if tt.wantErr {
 				if err == nil {
@@ -277,10 +244,10 @@ func TestAdvisoryFindings(t *testing.T) {
 				t.Fatalf("advisoryFindings() unexpected error: %v", err)
 			}
 			if len(rules) != tt.wantRules {
-				t.Errorf("advisoryFindings() rules = %d, want %d", len(rules), tt.wantRules)
+				t.Errorf("advisoryFindings() rules len = %d, want %d", len(rules), tt.wantRules)
 			}
 			if len(results) != tt.wantResults {
-				t.Errorf("advisoryFindings() results = %d, want %d", len(results), tt.wantResults)
+				t.Errorf("advisoryFindings() results len = %d, want %d", len(results), tt.wantResults)
 			}
 		})
 	}
@@ -291,7 +258,7 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 
 	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
 	regs := regions{
-		"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20},
+		"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20, hash: "linehash:1"},
 	}
 
 	adv := advisory{
@@ -306,8 +273,11 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("advisoryFindings() unexpected error: %v", err)
 	}
-	if len(rules) != 1 || len(results) != 1 {
-		t.Fatalf("advisoryFindings() = %d rules %d results, want 1 and 1", len(rules), len(results))
+	if len(rules) != 1 {
+		t.Errorf("advisoryFindings() rules len = %d, want 1", len(rules))
+	}
+	if len(results) != 1 {
+		t.Errorf("advisoryFindings() results len = %d, want 1", len(results))
 	}
 
 	wantRuleID := adv.ruleID()
@@ -324,21 +294,13 @@ func TestAdvisoryFindingsRuleAndResultContent(t *testing.T) {
 	}
 
 	fp := results[0].PartialFingerprints
-	if _, ok := fp["primaryLocationLineHash"]; !ok {
-		t.Error("advisoryFindings() result missing primaryLocationLineHash fingerprint")
+	if got := fp["primaryLocationLineHash"]; got != "linehash:1" {
+		t.Errorf("advisoryFindings() result fingerprint = %q, want %q", got, "linehash:1")
 	}
 }
 
 func TestAbandonedFindings(t *testing.T) {
 	t.Parallel()
-
-	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
-
-	regs := regions{
-		"vendor/old":  {line: 5, startColumn: 1, endColumn: 20},
-		"another/pkg": {line: 10, startColumn: 2, endColumn: 15},
-		"third/pkg":   {line: 20, startColumn: 3, endColumn: 25},
-	}
 
 	tests := []struct {
 		name         string
@@ -398,6 +360,14 @@ func TestAbandonedFindings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
+			regs := regions{
+				"vendor/old":  {line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"},
+				"another/pkg": {line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"},
+				"third/pkg":   {line: 20, startColumn: 3, endColumn: 25, hash: "hash-20:1"},
+			}
+
 			rule, results, err := abandonedFindings(regs, aLoc, tt.abandonments)
 			if tt.wantErr {
 				if err == nil {
@@ -415,7 +385,7 @@ func TestAbandonedFindings(t *testing.T) {
 				t.Errorf("abandonedFindings() rule ID = %v, want %q", rule.ID, "abandoned")
 			}
 			if len(results) != tt.wantResults {
-				t.Errorf("abandonedFindings() results = %d, want %d", len(results), tt.wantResults)
+				t.Errorf("abandonedFindings() results len = %d, want %d", len(results), tt.wantResults)
 			}
 		})
 	}
@@ -426,7 +396,7 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 
 	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
 	regs := regions{
-		"vendor/old": {line: 5, startColumn: 1, endColumn: 20},
+		"vendor/old": {line: 5, startColumn: 1, endColumn: 20, hash: "linehash:1"},
 	}
 
 	ab := abandonment{packageName: "vendor/old", replacement: "vendor/new"}
@@ -443,7 +413,7 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 	}
 
 	if len(results) != 1 {
-		t.Fatalf("abandonedFindings() = %d results, want 1", len(results))
+		t.Fatalf("abandonedFindings() results len = %d , want 1", len(results))
 	}
 	res := results[0]
 	if res.RuleID == nil || *res.RuleID != "abandoned" {
@@ -452,21 +422,13 @@ func TestAbandonedFindingsResultContent(t *testing.T) {
 	if res.Message.Text == nil || !strings.Contains(*res.Message.Text, "vendor/old") {
 		t.Errorf("abandonedFindings() result message missing vendor/old: %v", res.Message.Text)
 	}
-	if _, ok := res.PartialFingerprints["primaryLocationLineHash"]; !ok {
-		t.Error("abandonedFindings() result missing primaryLocationLineHash fingerprint")
+	if got := res.PartialFingerprints["primaryLocationLineHash"]; got != "linehash:1" {
+		t.Errorf("abandonedFindings() result fingerprint = %q, want %q", got, "linehash:1")
 	}
 }
 
 func TestBuild(t *testing.T) {
 	t.Parallel()
-
-	aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
-
-	regs := regions{
-		"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20},
-		"a/b":        {line: 10, startColumn: 2, endColumn: 15},
-		"vendor/old": {line: 15, startColumn: 3, endColumn: 25},
-	}
 
 	tests := []struct {
 		name        string
@@ -567,6 +529,14 @@ func TestBuild(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			aLoc := sarif.NewSimpleArtifactLocation("composer.lock")
+			regs := regions{
+				"vendor/pkg": {line: 5, startColumn: 1, endColumn: 20, hash: "hash-5:1"},
+				"a/b":        {line: 10, startColumn: 2, endColumn: 15, hash: "hash-10:1"},
+				"vendor/old": {line: 15, startColumn: 3, endColumn: 25, hash: "hash-15:1"},
+			}
+
 			rules, results, err := build(tt.aud, regs, aLoc)
 			if tt.wantErr {
 				if err == nil {
@@ -578,10 +548,10 @@ func TestBuild(t *testing.T) {
 				t.Fatalf("build() unexpected error: %v", err)
 			}
 			if len(rules) != tt.wantRules {
-				t.Errorf("build() rules = %d, want %d", len(rules), tt.wantRules)
+				t.Errorf("build() rules len = %d, want %d", len(rules), tt.wantRules)
 			}
 			if len(results) != tt.wantResults {
-				t.Errorf("build() results = %d, want %d", len(results), tt.wantResults)
+				t.Errorf("build() results len = %d, want %d", len(results), tt.wantResults)
 			}
 		})
 	}
@@ -696,7 +666,7 @@ func TestNewReport_Structure(t *testing.T) {
 		t.Fatal("NewReport() report is nil")
 	}
 	if len(report.Runs) != 1 {
-		t.Fatalf("NewReport() = %d runs, want 1", len(report.Runs))
+		t.Fatalf("NewReport() runs len = %d, want 1", len(report.Runs))
 	}
 	run := report.Runs[0]
 	if run.Tool.Driver.Name == nil || *run.Tool.Driver.Name != "composer" {

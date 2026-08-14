@@ -3,7 +3,7 @@
 # ComSARIF
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/typisttech/comsarif.svg)](https://pkg.go.dev/github.com/typisttech/comsarif)
-[![GitHub Release](https://img.shields.io/github/v/release/typisttech/comsarif?style=flat-square&)](https://github.com/typisttech/comsarif/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/typisttech/comsarif)](https://github.com/typisttech/comsarif/releases/latest)
 [![Test](https://github.com/typisttech/comsarif/actions/workflows/test.yml/badge.svg)](https://github.com/typisttech/comsarif/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/typisttech/comsarif/graph/badge.svg?token=2YOGJ8FGFB)](https://codecov.io/gh/typisttech/comsarif)
 [![License](https://img.shields.io/github/license/typisttech/comsarif.svg)](https://github.com/typisttech/comsarif/blob/master/LICENSE)

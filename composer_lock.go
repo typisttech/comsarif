@@ -2,7 +2,7 @@ package comsarif
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -52,13 +52,13 @@ func parseRegions(data []byte) (regions, error) {
 		}
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	if err := expectDelim(decoder, '{'); err != nil {
 		return nil, fmt.Errorf("parse composer.lock: %v", err)
 	}
 
 	regs := make(regions)
-	for decoder.More() {
+	for decoder.PeekKind() != jsontext.KindEndObject {
 		key, err := nextJSONString(decoder)
 		if err != nil {
 			return nil, fmt.Errorf("parse composer.lock: parse top level object key: %v", err)
@@ -70,7 +70,7 @@ func parseRegions(data []byte) (regions, error) {
 				return nil, fmt.Errorf("parse composer.lock: parse top level %s array: %v", key, err)
 			}
 		default:
-			if err = skipJSONValue(decoder); err != nil {
+			if err = decoder.SkipValue(); err != nil {
 				return nil, fmt.Errorf("parse composer.lock: %v", err)
 			}
 		}
@@ -83,12 +83,12 @@ func parseRegions(data []byte) (regions, error) {
 	return regs, nil
 }
 
-func parsePackageArray(decoder *json.Decoder, data []byte, newlines []int, regions regions) error {
+func parsePackageArray(decoder *jsontext.Decoder, data []byte, newlines []int, regions regions) error {
 	if err := expectDelim(decoder, '['); err != nil {
 		return err
 	}
 
-	for decoder.More() {
+	for decoder.PeekKind() != jsontext.KindEndArray {
 		if err := expectDelim(decoder, '{'); err != nil {
 			return err
 		}
@@ -111,18 +111,18 @@ func parsePackageArray(decoder *json.Decoder, data []byte, newlines []int, regio
 	return expectDelim(decoder, ']')
 }
 
-func locatePackageRegion(decoder *json.Decoder, data []byte, newlines []int) (string, region, error) {
+func locatePackageRegion(decoder *jsontext.Decoder, data []byte, newlines []int) (string, region, error) {
 	var name string
 	var offset int64
 
-	for decoder.More() {
+	for decoder.PeekKind() != jsontext.KindEndObject {
 		key, err := nextJSONString(decoder)
 		if err != nil {
 			return "", region{}, fmt.Errorf("parse package field key: %v", err)
 		}
 
 		if key != "name" {
-			if err := skipJSONValue(decoder); err != nil {
+			if err := decoder.SkipValue(); err != nil {
 				return "", region{}, err
 			}
 			continue
@@ -167,64 +167,28 @@ func locatePackageRegion(decoder *json.Decoder, data []byte, newlines []int) (st
 	return name, r, nil
 }
 
-func expectDelim(decoder *json.Decoder, want json.Delim) error {
-	tok, err := decoder.Token()
+func expectDelim(decoder *jsontext.Decoder, want jsontext.Kind) error {
+	tok, err := decoder.ReadToken()
 	if err != nil {
 		return err
 	}
 
-	delim, ok := tok.(json.Delim)
-	if !ok || delim != want {
-		return fmt.Errorf("expected %q, got %T %v", want, tok, tok)
+	if tok.Kind() != want {
+		return fmt.Errorf("expected %q, got %v", want, tok)
 	}
 
 	return nil
 }
 
-func nextJSONString(decoder *json.Decoder) (string, error) {
-	tok, err := decoder.Token()
+func nextJSONString(decoder *jsontext.Decoder) (string, error) {
+	tok, err := decoder.ReadToken()
 	if err != nil {
 		return "", err
 	}
 
-	val, ok := tok.(string)
-	if !ok {
-		return "", fmt.Errorf("expected JSON string literals, got %T %v", tok, tok)
+	if tok.Kind() != jsontext.KindString {
+		return "", fmt.Errorf("expected JSON string literals, got %v", tok)
 	}
 
-	return val, nil
-}
-
-func skipJSONValue(decoder *json.Decoder) error {
-	tok, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-
-	delim, ok := tok.(json.Delim)
-	if !ok {
-		return nil
-	}
-
-	switch delim {
-	case '{':
-		for decoder.More() {
-			if _, err := decoder.Token(); err != nil {
-				return err
-			}
-			if err := skipJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		return expectDelim(decoder, '}')
-	case '[':
-		for decoder.More() {
-			if err := skipJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		return expectDelim(decoder, ']')
-	default:
-		return nil
-	}
+	return tok.String(), nil
 }

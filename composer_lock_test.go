@@ -143,41 +143,6 @@ func TestNextJSONString_Errors(t *testing.T) {
 	}
 }
 
-func TestSkipJSONValue(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		content string
-		wantErr bool
-	}{
-		{"skip_string", `"hello" "next"`, false},
-		{"skip_number", `42 "next"`, false},
-		{"skip_bool_true", `true "next"`, false},
-		{"skip_bool_false", `false "next"`, false},
-		{"skip_null", `null "next"`, false},
-		{"skip_empty_object", `{} "next"`, false},
-		{"skip_empty_array", `[] "next"`, false},
-		{"skip_nested_object", `{"a":{"b":1}} "next"`, false},
-		{"skip_nested_array", `[[1,2],[3,4]] "next"`, false},
-		{"skip_deep_nesting", `{"a":{"b":{"c":[1,2,3]}}} "next"`, false},
-		{"empty_input", ``, true},
-		{"truncated_object", `{"a":`, true},
-		{"truncated_array", `[1,`, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			dec := newDecoder(tt.content)
-			err := dec.SkipValue()
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("skipJSONValue() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestLocatePackageRegion(t *testing.T) {
 	t.Parallel()
 
@@ -270,6 +235,8 @@ func TestLocatePackageRegion_Errors(t *testing.T) {
 		{"empty_object_no_fields", `{}`},
 		{"only_nested_object_no_name", `{"extra":{"a":"b"},"info":{"c":"d"}}`},
 		{"name_value_is_false", `{"name":false}`},
+		{"truncated_nested_object_value", `{"extra":{"a":`},
+		{"truncated_array_value", `{"keywords":["a",`},
 	}
 
 	for _, tt := range tests {
@@ -511,6 +478,9 @@ func TestNewRegions_Errors(t *testing.T) {
 		{"package_with_empty_name", `{"packages":[{"name":""}]}`},
 		{"package_name_is_number", `{"packages":[{"name":42}]}`},
 		{"duplicate_package_within_same_array", `{"packages":[{"name":"vendor/foo"},{"name":"vendor/foo"}]}`},
+		{"truncated_unknown_string_value", `{"content-hash":`},
+		{"truncated_unknown_object_value", `{"extra":{"a":`},
+		{"truncated_unknown_array_value", `{"aliases":["a",`},
 	}
 
 	for _, tt := range tests {

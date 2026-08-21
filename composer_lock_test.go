@@ -1,7 +1,7 @@
 package comsarif
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"maps"
 	"slices"
 	"strings"
@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func newDecoder(s string) *json.Decoder {
-	return json.NewDecoder(strings.NewReader(s))
+func newDecoder(s string) *jsontext.Decoder {
+	return jsontext.NewDecoder(strings.NewReader(s))
 }
 
 func TestExpectDelim(t *testing.T) {
@@ -21,18 +21,18 @@ func TestExpectDelim(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
-		want    json.Delim
+		want    jsontext.Kind
 	}{
-		{"open_brace", `{}`, '{'},
-		{"open_bracket", `[]`, '['},
-		{"close_brace_after_open", `{}`, '{'},
-		{"close_bracket_after_open", `[]`, '['},
-		{"nested_open_brace", `{  }`, '{'},
-		{"open_brace_with_content", `{"key":"val"}`, '{'},
-		{"open_bracket_with_content", `[1,2,3]`, '['},
-		{"close_bracket_delim", `[]`, '['},
-		{"close_brace_delim", `{}`, '{'},
-		{"whitespace_before_brace", `   {  }`, '{'},
+		{"open_brace", `{}`, jsontext.KindBeginObject},
+		{"open_bracket", `[]`, jsontext.KindBeginArray},
+		{"close_brace_after_open", `{}`, jsontext.KindBeginObject},
+		{"close_bracket_after_open", `[]`, jsontext.KindBeginArray},
+		{"nested_open_brace", `{  }`, jsontext.KindBeginObject},
+		{"open_brace_with_content", `{"key":"val"}`, jsontext.KindBeginObject},
+		{"open_bracket_with_content", `[1,2,3]`, jsontext.KindBeginArray},
+		{"close_bracket_delim", `[]`, jsontext.KindBeginArray},
+		{"close_brace_delim", `{}`, jsontext.KindBeginObject},
+		{"whitespace_before_brace", `   {  }`, jsontext.KindBeginObject},
 	}
 
 	for _, tt := range tests {
@@ -52,18 +52,18 @@ func TestExpectDelim_Errors(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
-		want    json.Delim
+		want    jsontext.Kind
 	}{
-		{"empty_input", ``, '{'},
-		{"string_instead_of_delim", `"hello"`, '{'},
-		{"number_instead_of_delim", `42`, '{'},
-		{"bool_instead_of_delim", `true`, '{'},
-		{"null_instead_of_delim", `null`, '{'},
-		{"wrong_delim_brace_vs_bracket", `[`, '{'},
-		{"wrong_delim_bracket_vs_brace", `{`, '['},
-		{"close_instead_of_open", `}`, '{'},
-		{"close_bracket_instead_of_open_brace", `]`, '{'},
-		{"float_instead_of_delim", `3.14`, '{'},
+		{"empty_input", ``, jsontext.KindBeginObject},
+		{"string_instead_of_delim", `"hello"`, jsontext.KindBeginObject},
+		{"number_instead_of_delim", `42`, jsontext.KindBeginObject},
+		{"bool_instead_of_delim", `true`, jsontext.KindBeginObject},
+		{"null_instead_of_delim", `null`, jsontext.KindBeginObject},
+		{"wrong_delim_brace_vs_bracket", `[`, jsontext.KindBeginObject},
+		{"wrong_delim_bracket_vs_brace", `{`, jsontext.KindBeginArray},
+		{"close_instead_of_open", `}`, jsontext.KindBeginObject},
+		{"close_bracket_instead_of_open_brace", `]`, jsontext.KindBeginObject},
+		{"float_instead_of_delim", `3.14`, jsontext.KindBeginObject},
 	}
 
 	for _, tt := range tests {
@@ -170,7 +170,7 @@ func TestSkipJSONValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			dec := newDecoder(tt.content)
-			err := skipJSONValue(dec)
+			err := dec.SkipValue()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("skipJSONValue() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -181,7 +181,7 @@ func TestSkipJSONValue(t *testing.T) {
 func TestLocatePackageRegion(t *testing.T) {
 	t.Parallel()
 
-	makeDecoderInObject := func(objJSON string) (*json.Decoder, []byte, []int) {
+	makeDecoderInObject := func(objJSON string) (*jsontext.Decoder, []byte, []int) {
 		data := []byte(objJSON)
 		var newlines []int
 		for i, b := range data {
@@ -189,8 +189,8 @@ func TestLocatePackageRegion(t *testing.T) {
 				newlines = append(newlines, i)
 			}
 		}
-		dec := json.NewDecoder(strings.NewReader(objJSON))
-		_, _ = dec.Token()
+		dec := jsontext.NewDecoder(strings.NewReader(objJSON))
+		_, _ = dec.ReadToken()
 		return dec, data, newlines
 	}
 
@@ -243,7 +243,7 @@ func TestLocatePackageRegion(t *testing.T) {
 func TestLocatePackageRegion_Errors(t *testing.T) {
 	t.Parallel()
 
-	makeDecoderInObject := func(objJSON string) (*json.Decoder, []byte, []int) {
+	makeDecoderInObject := func(objJSON string) (*jsontext.Decoder, []byte, []int) {
 		data := []byte(objJSON)
 		var newlines []int
 		for i, b := range data {
@@ -251,8 +251,8 @@ func TestLocatePackageRegion_Errors(t *testing.T) {
 				newlines = append(newlines, i)
 			}
 		}
-		dec := json.NewDecoder(strings.NewReader(objJSON))
-		_, _ = dec.Token()
+		dec := jsontext.NewDecoder(strings.NewReader(objJSON))
+		_, _ = dec.ReadToken()
 		return dec, data, newlines
 	}
 
@@ -314,7 +314,7 @@ func TestParsePackageArray(t *testing.T) {
 					newlines = append(newlines, i)
 				}
 			}
-			dec := json.NewDecoder(strings.NewReader(tt.content))
+			dec := jsontext.NewDecoder(strings.NewReader(tt.content))
 			regs := make(regions)
 			if err := parsePackageArray(dec, data, newlines, regs); err != nil {
 				t.Fatalf("parsePackageArray() unexpected error: %v", err)
@@ -359,7 +359,7 @@ func TestParsePackageArray_Errors(t *testing.T) {
 					newlines = append(newlines, i)
 				}
 			}
-			dec := json.NewDecoder(strings.NewReader(tt.content))
+			dec := jsontext.NewDecoder(strings.NewReader(tt.content))
 			regs := make(regions)
 			if err := parsePackageArray(dec, data, newlines, regs); err == nil {
 				t.Fatal("parsePackageArray() unexpected success")

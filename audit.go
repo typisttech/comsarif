@@ -2,7 +2,7 @@ package comsarif
 
 import (
 	"bytes"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +21,7 @@ func newAudit(r io.Reader) (audit, error) {
 	if err != nil {
 		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
 	}
-	if err := json.Unmarshal(b, &raw); err != nil {
+	if err := jsonv2.Unmarshal(b, &raw); err != nil {
 		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
 	}
 
@@ -382,7 +382,7 @@ func unmarshalJSONObjectOrEmptyArray[T any](b []byte, fieldName string, dst *map
 		*dst = map[string]T{}
 		return nil
 	case '{':
-		return json.Unmarshal(b, dst)
+		return jsonv2.Unmarshal(b, dst)
 	default:
 		return fmt.Errorf("invalid %s JSON", fieldName)
 	}

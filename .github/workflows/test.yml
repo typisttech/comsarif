@@ -32,7 +32,8 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version: ${{ matrix.go-version }}
+          go-version-file: ${{ matrix.go-version-file }}
 
       - run: go test -count=1 -race -shuffle=on  -coverprofile=coverage.out -covermode=atomic ./...
         if: ${{ matrix.go-version-file == 'go.mod' }}

@@ -23,19 +23,19 @@ func run(args []string, stdout io.Writer) error {
 
 	auditPath, err := filepath.Abs(cfg.auditPath)
 	if err != nil {
-		return fmt.Errorf("normalize audit path %q to absolute: %v", cfg.auditPath, err)
+		return fmt.Errorf("normalize audit path %q to absolute: %w", cfg.auditPath, err)
 	}
 	rootPath, err := filepath.Abs(cfg.rootPath)
 	if err != nil {
-		return fmt.Errorf("normalize root path %q to absolute: %v", cfg.auditPath, err)
+		return fmt.Errorf("normalize root path %q to absolute: %w", cfg.rootPath, err)
 	}
 	lockPath, err := filepath.Abs(cfg.lockPath)
 	if err != nil {
-		return fmt.Errorf("normalize composer.lock path %q to absolute: %v", cfg.auditPath, err)
+		return fmt.Errorf("normalize composer.lock path %q to absolute: %w", cfg.lockPath, err)
 	}
 	lockRelPath, err := filepath.Rel(rootPath, lockPath)
 	if err != nil {
-		return fmt.Errorf("normalize composer.lock path %q relative to root %q: %v", lockPath, rootPath, err)
+		return fmt.Errorf("normalize composer.lock path %q relative to root %q: %w", lockPath, rootPath, err)
 	}
 
 	//gosec:disable G304 -- We want to open users' audit files.
@@ -47,13 +47,13 @@ func run(args []string, stdout io.Writer) error {
 
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
-		return fmt.Errorf("open root path %q: %v", rootPath, err)
+		return fmt.Errorf("open root path %q: %w", rootPath, err)
 	}
 	defer root.Close()
 
 	lock, err := root.Open(lockRelPath)
 	if err != nil {
-		return fmt.Errorf("open lock path %q: %v", lockRelPath, err)
+		return fmt.Errorf("open lock path %q: %w", lockRelPath, err)
 	}
 	defer lock.Close()
 
@@ -65,7 +65,7 @@ func run(args []string, stdout io.Writer) error {
 	}
 
 	if err := report.Write(stdout); err != nil {
-		return fmt.Errorf("render report: %v", err)
+		return fmt.Errorf("render report: %w", err)
 	}
 
 	fmt.Fprintln(stdout, "")

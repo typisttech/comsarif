@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -19,26 +20,25 @@ func newAudit(r io.Reader) (audit, error) {
 	var raw rawAudit
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
+		return audit{}, fmt.Errorf("parse audit JSON: %w", err)
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
-		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
+		return audit{}, fmt.Errorf("parse audit JSON: %w", err)
 	}
 
 	var aud audit
 
 	advisories, err := raw.Advisories.normalize()
 	if err != nil {
-		return audit{}, fmt.Errorf("normalize audit JSON advisories: %v", err)
+		return audit{}, fmt.Errorf("normalize audit JSON advisories: %w", err)
 	}
 
 	ignoredAdvisories, err := raw.IgnoredAdvisories.normalize()
 	if err != nil {
-		return audit{}, fmt.Errorf("normalize audit JSON ignored-advisories: %v", err)
+		return audit{}, fmt.Errorf("normalize audit JSON ignored-advisories: %w", err)
 	}
 
-	//nolint:gocritic
-	aud.advisories = append(advisories, ignoredAdvisories...)
+	aud.advisories = slices.Concat(advisories, ignoredAdvisories)
 
 	aud.abandonments = raw.Abandoned.normalize()
 

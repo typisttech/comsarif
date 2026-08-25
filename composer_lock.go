@@ -21,7 +21,7 @@ type region struct {
 func newRegions(r io.Reader) (regions, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("read composer.lock JSON: %v", err)
+		return nil, fmt.Errorf("read composer.lock JSON: %w", err)
 	}
 
 	regs, err := parseRegions(data)
@@ -54,30 +54,30 @@ func parseRegions(data []byte) (regions, error) {
 
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	if err := expectDelim(decoder, '{'); err != nil {
-		return nil, fmt.Errorf("parse composer.lock: %v", err)
+		return nil, fmt.Errorf("parse composer.lock: %w", err)
 	}
 
 	regs := make(regions)
 	for decoder.PeekKind() != jsontext.KindEndObject {
 		key, err := nextJSONString(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("parse composer.lock: parse top level object key: %v", err)
+			return nil, fmt.Errorf("parse composer.lock: parse top level object key: %w", err)
 		}
 
 		switch key {
 		case "packages", "packages-dev":
 			if err = parsePackageArray(decoder, data, lineBreaks, regs); err != nil {
-				return nil, fmt.Errorf("parse composer.lock: parse top level %s array: %v", key, err)
+				return nil, fmt.Errorf("parse composer.lock: parse top level %s array: %w", key, err)
 			}
 		default:
 			if err = decoder.SkipValue(); err != nil {
-				return nil, fmt.Errorf("parse composer.lock: %v", err)
+				return nil, fmt.Errorf("parse composer.lock: %w", err)
 			}
 		}
 	}
 
 	if err := expectDelim(decoder, '}'); err != nil {
-		return nil, fmt.Errorf("parse composer.lock: %v", err)
+		return nil, fmt.Errorf("parse composer.lock: %w", err)
 	}
 
 	return regs, nil
@@ -118,7 +118,7 @@ func locatePackageRegion(decoder *jsontext.Decoder, data []byte, newlines []int)
 	for decoder.PeekKind() != jsontext.KindEndObject {
 		key, err := nextJSONString(decoder)
 		if err != nil {
-			return "", region{}, fmt.Errorf("parse package field key: %v", err)
+			return "", region{}, fmt.Errorf("parse package field key: %w", err)
 		}
 
 		if key != "name" {
@@ -131,7 +131,7 @@ func locatePackageRegion(decoder *jsontext.Decoder, data []byte, newlines []int)
 		offset = decoder.InputOffset()
 		val, err := nextJSONString(decoder)
 		if err != nil {
-			return "", region{}, fmt.Errorf("parse package name value: %v", err)
+			return "", region{}, fmt.Errorf("parse package name value: %w", err)
 		}
 		if val == "" {
 			return "", region{}, errors.New("parse package name value: expected non-empty string")

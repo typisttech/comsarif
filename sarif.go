@@ -10,19 +10,19 @@ import (
 func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (*sarif.Report, error) {
 	aud, err := newAudit(auditJSON)
 	if err != nil {
-		return nil, fmt.Errorf("generate new report: %v", err)
+		return nil, fmt.Errorf("generate new report: %w", err)
 	}
 
 	regs, err := newRegions(composerLockJSON)
 	if err != nil {
-		return nil, fmt.Errorf("generate new report: %v", err)
+		return nil, fmt.Errorf("generate new report: %w", err)
 	}
 
 	aLoc := sarif.NewSimpleArtifactLocation(lockURI)
 
 	rules, results, err := build(aud, regs, aLoc)
 	if err != nil {
-		return nil, fmt.Errorf("generate new report: %v", err)
+		return nil, fmt.Errorf("generate new report: %w", err)
 	}
 
 	inv := sarif.NewInvocation().
@@ -38,7 +38,7 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 		AddRun(run)
 
 	if err := report.Validate(); err != nil {
-		return nil, fmt.Errorf("generate new report: %v", err)
+		return nil, fmt.Errorf("generate new report: %w", err)
 	}
 
 	return report, nil

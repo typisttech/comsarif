@@ -2,6 +2,8 @@ module github.com/typisttech/comsarif
 
 go 1.27.0
 
+toolchain go1.27.1
+
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/owenrumney/go-sarif/v3 v3.3.1

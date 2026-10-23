@@ -53,9 +53,9 @@ homebrew_casks:
       Convert Composer audit reports to SARIF files
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/{{ .ProjectName }}"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/{{ .ProjectName }}"]
           end
     repository:
       owner: typisttech

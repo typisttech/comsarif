@@ -166,11 +166,36 @@ func TestLocatePackageRegion(t *testing.T) {
 		wantReg region
 	}{
 		{"name_only_field", `{"name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 21}},
-		{"name_after_other_fields", `{"version":"1.0","name":"vendor/pkg"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 37}},
-		{"name_before_other_fields", `{"name":"vendor/pkg","version":"1.0","description":"foo"}`, "vendor/pkg", region{line: 1, startColumn: 2, endColumn: 57}},
-		{"name_with_nested_object_before_it", `{"extra":{"key":"val"},"name":"vendor/nested"}`, "vendor/nested", region{line: 1, startColumn: 2, endColumn: 46}},
-		{"name_with_array_field", `{"keywords":["a","b"],"name":"vendor/arr"}`, "vendor/arr", region{line: 1, startColumn: 2, endColumn: 42}},
-		{"many_fields_before_name", `{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`, "vendor/many", region{line: 1, startColumn: 2, endColumn: 54}},
+		{
+			"name_after_other_fields",
+			`{"version":"1.0","name":"vendor/pkg"}`,
+			"vendor/pkg",
+			region{line: 1, startColumn: 2, endColumn: 37},
+		},
+		{
+			"name_before_other_fields",
+			`{"name":"vendor/pkg","version":"1.0","description":"foo"}`,
+			"vendor/pkg",
+			region{line: 1, startColumn: 2, endColumn: 57},
+		},
+		{
+			"name_with_nested_object_before_it",
+			`{"extra":{"key":"val"},"name":"vendor/nested"}`,
+			"vendor/nested",
+			region{line: 1, startColumn: 2, endColumn: 46},
+		},
+		{
+			"name_with_array_field",
+			`{"keywords":["a","b"],"name":"vendor/arr"}`,
+			"vendor/arr",
+			region{line: 1, startColumn: 2, endColumn: 42},
+		},
+		{
+			"many_fields_before_name",
+			`{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}`,
+			"vendor/many",
+			region{line: 1, startColumn: 2, endColumn: 54},
+		},
 		{
 			"multiline_object_name_on_own_line",
 			`{
@@ -180,11 +205,36 @@ func TestLocatePackageRegion(t *testing.T) {
 			"vendor/multi",
 			region{line: 3, startColumn: 1, endColumn: 22},
 		},
-		{"name_with_deeply_nested_field_before_it", `{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`, "vendor/pkg2", region{line: 1, startColumn: 2, endColumn: 62}},
-		{"name_with_boolean_field_before_it", `{"abandoned":false,"name":"vendor/pkg3"}`, "vendor/pkg3", region{line: 1, startColumn: 2, endColumn: 40}},
-		{"name_with_null_field_before_it", `{"homepage":null,"name":"vendor/pkg4"}`, "vendor/pkg4", region{line: 1, startColumn: 2, endColumn: 38}},
-		{"nested_name_inside_extra_before", `{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 61}},
-		{"nested_name_inside_extra_after", `{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`, "monolog/monolog", region{line: 1, startColumn: 2, endColumn: 59}},
+		{
+			"name_with_deeply_nested_field_before_it",
+			`{"require":{"php":"^8.0","ext-json":"*"},"name":"vendor/pkg2"}`,
+			"vendor/pkg2",
+			region{line: 1, startColumn: 2, endColumn: 62},
+		},
+		{
+			"name_with_boolean_field_before_it",
+			`{"abandoned":false,"name":"vendor/pkg3"}`,
+			"vendor/pkg3",
+			region{line: 1, startColumn: 2, endColumn: 40},
+		},
+		{
+			"name_with_null_field_before_it",
+			`{"homepage":null,"name":"vendor/pkg4"}`,
+			"vendor/pkg4",
+			region{line: 1, startColumn: 2, endColumn: 38},
+		},
+		{
+			"nested_name_inside_extra_before",
+			`{"extra":{"foo":{"name":"psr/log"}},"name":"monolog/monolog"}`,
+			"monolog/monolog",
+			region{line: 1, startColumn: 2, endColumn: 61},
+		},
+		{
+			"nested_name_inside_extra_after",
+			`{"name":"monolog/monolog","extra":{"foo":{"name":"psr/log"}}}`,
+			"monolog/monolog",
+			region{line: 1, startColumn: 2, endColumn: 59},
+		},
 	}
 
 	for _, tt := range tests {
@@ -262,11 +312,19 @@ func TestParsePackageArray(t *testing.T) {
 		{"empty_array", `[]`, nil},
 		{"single_package", `[{"name":"vendor/foo"}]`, []string{"vendor/foo"}},
 		{"two_packages", `[{"name":"vendor/foo"},{"name":"vendor/bar"}]`, []string{"vendor/foo", "vendor/bar"}},
-		{"package_with_extra_fields", `[{"version":"1.0","name":"vendor/pkg","description":"d"}]`, []string{"vendor/pkg"}},
+		{
+			"package_with_extra_fields",
+			`[{"version":"1.0","name":"vendor/pkg","description":"d"}]`,
+			[]string{"vendor/pkg"},
+		},
 		{"package_name_after_nested_object", `[{"extra":{"x":1},"name":"vendor/nested"}]`, []string{"vendor/nested"}},
 		{"three_packages", `[{"name":"a/b"},{"name":"c/d"},{"name":"e/f"}]`, []string{"a/b", "c/d", "e/f"}},
 		{"package_with_array_field_before_name", `[{"keywords":["x","y"],"name":"vendor/kw"}]`, []string{"vendor/kw"}},
-		{"package_name_before_other_fields", `[{"name":"vendor/first","version":"2.0","description":"d"}]`, []string{"vendor/first"}},
+		{
+			"package_name_before_other_fields",
+			`[{"name":"vendor/first","version":"2.0","description":"d"}]`,
+			[]string{"vendor/first"},
+		},
 		{"package_with_boolean_field", `[{"abandoned":true,"name":"vendor/old"}]`, []string{"vendor/old"}},
 		{"package_with_null_field", `[{"homepage":null,"name":"vendor/nohome"}]`, []string{"vendor/nohome"}},
 	}
@@ -430,14 +488,42 @@ func TestNewRegions_Keys(t *testing.T) {
 		{"empty_object", `{}`, nil},
 		{"empty_packages_array", `{"packages":[]}`, nil},
 		{"single_package_in_packages", `{"packages":[{"name":"vendor/foo"}]}`, []string{"vendor/foo"}},
-		{"multiple_packages_in_packages", `{"packages":[{"name":"vendor/foo"},{"name":"vendor/bar"}]}`, []string{"vendor/foo", "vendor/bar"}},
+		{
+			"multiple_packages_in_packages",
+			`{"packages":[{"name":"vendor/foo"},{"name":"vendor/bar"}]}`,
+			[]string{"vendor/foo", "vendor/bar"},
+		},
 		{"single_package_in_packages_dev", `{"packages-dev":[{"name":"vendor/dev"}]}`, []string{"vendor/dev"}},
-		{"both_packages_and_packages_dev", `{"packages":[{"name":"vendor/foo"}],"packages-dev":[{"name":"vendor/dev"}]}`, []string{"vendor/foo", "vendor/dev"}},
-		{"unknown_top_level_key_skipped", `{"content-hash":"abc123","packages":[{"name":"vendor/foo"}]}`, []string{"vendor/foo"}},
-		{"unknown_key_with_object_value_skipped", `{"extra":{"key":"val"},"packages":[{"name":"vendor/foo"}]}`, []string{"vendor/foo"}},
-		{"unknown_key_with_array_value_skipped", `{"aliases":["a","b"],"packages":[{"name":"vendor/foo"}]}`, []string{"vendor/foo"}},
-		{"package_with_many_fields_before_name", `{"packages":[{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}]}`, []string{"vendor/many"}},
-		{"nested_packages_key_not_parsed_as_top_level", `{"packages":[{"name":"vendor/foo","packages":[{"name":"nested/pkg"}]}]}`, []string{"vendor/foo"}},
+		{
+			"both_packages_and_packages_dev",
+			`{"packages":[{"name":"vendor/foo"}],"packages-dev":[{"name":"vendor/dev"}]}`,
+			[]string{"vendor/foo", "vendor/dev"},
+		},
+		{
+			"unknown_top_level_key_skipped",
+			`{"content-hash":"abc123","packages":[{"name":"vendor/foo"}]}`,
+			[]string{"vendor/foo"},
+		},
+		{
+			"unknown_key_with_object_value_skipped",
+			`{"extra":{"key":"val"},"packages":[{"name":"vendor/foo"}]}`,
+			[]string{"vendor/foo"},
+		},
+		{
+			"unknown_key_with_array_value_skipped",
+			`{"aliases":["a","b"],"packages":[{"name":"vendor/foo"}]}`,
+			[]string{"vendor/foo"},
+		},
+		{
+			"package_with_many_fields_before_name",
+			`{"packages":[{"a":"1","b":"2","c":"3","d":"4","name":"vendor/many"}]}`,
+			[]string{"vendor/many"},
+		},
+		{
+			"nested_packages_key_not_parsed_as_top_level",
+			`{"packages":[{"name":"vendor/foo","packages":[{"name":"nested/pkg"}]}]}`,
+			[]string{"vendor/foo"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -473,7 +559,10 @@ func TestNewRegions_Errors(t *testing.T) {
 		{"not_an_object_string", `"hello"`},
 		{"malformed_JSON", `{bad}`},
 		{"truncated_object", `{"packages":[`},
-		{"duplicate_package_across_arrays", `{"packages":[{"name":"vendor/foo"}],"packages-dev":[{"name":"vendor/foo"}]}`},
+		{
+			"duplicate_package_across_arrays",
+			`{"packages":[{"name":"vendor/foo"}],"packages-dev":[{"name":"vendor/foo"}]}`,
+		},
 		{"package_missing_name", `{"packages":[{"version":"1.0"}]}`},
 		{"package_with_empty_name", `{"packages":[{"name":""}]}`},
 		{"package_name_is_number", `{"packages":[{"name":42}]}`},

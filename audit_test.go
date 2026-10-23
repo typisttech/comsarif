@@ -310,12 +310,40 @@ func TestAdvisory_ExternalID(t *testing.T) {
 		{"cve_with_unicode", advisory{id: "ID", cve: "漢字"}, "漢字"},
 		{"id_with_unicode", advisory{id: "漢字"}, "漢字"},
 		{"id_with_special_chars", advisory{id: "WPSECADV/WF/001"}, "WPSECADV/WF/001"},
-		{"ghsa_returned_when_no_cve", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}}, "GHSA-2345-6789-cfrv"},
-		{"cve_wins_over_ghsa", advisory{id: "ADV-001", cve: "CVE-2023-1", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}}, "CVE-2023-1"},
-		{"first_ghsa_source_used", advisory{id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}, {remoteID: "GHSA-wxyz-abcd-1234"}}}, "GHSA-2345-6789-cfrv"},
-		{"non_ghsa_remote_id_ignored/id", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}}, "ADV-001"},
-		{"non_ghsa_remote_id_ignored/cve", advisory{id: "ADV-001", cve: "CVE-2023-1234", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}}, "CVE-2023-1234"},
-		{"ghsa_uppercase_rejected", advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-WXYZ-cfgr"}}}, "ADV-001"},
+		{
+			"ghsa_returned_when_no_cve",
+			advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}},
+			"GHSA-2345-6789-cfrv",
+		},
+		{
+			"cve_wins_over_ghsa",
+			advisory{id: "ADV-001", cve: "CVE-2023-1", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}},
+			"CVE-2023-1",
+		},
+		{
+			"first_ghsa_source_used",
+			advisory{
+				id:      "ADV-001",
+				cve:     "",
+				sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}, {remoteID: "GHSA-wxyz-abcd-1234"}},
+			},
+			"GHSA-2345-6789-cfrv",
+		},
+		{
+			"non_ghsa_remote_id_ignored/id",
+			advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}},
+			"ADV-001",
+		},
+		{
+			"non_ghsa_remote_id_ignored/cve",
+			advisory{id: "ADV-001", cve: "CVE-2023-1234", sources: []advisorySource{{remoteID: "NOT-A-GHSA"}}},
+			"CVE-2023-1234",
+		},
+		{
+			"ghsa_uppercase_rejected",
+			advisory{id: "ADV-001", sources: []advisorySource{{remoteID: "GHSA-2345-WXYZ-cfgr"}}},
+			"ADV-001",
+		},
 	}
 
 	for _, tt := range tests {
@@ -344,7 +372,11 @@ func TestAdvisory_Description(t *testing.T) {
 		{"multi_line_first_wins", advisory{title: "First Line\nSecond Line"}, "First Line"},
 		{"leading_blank_lines", advisory{title: "\n\nThird Line"}, "Third Line"},
 		{"title_trimmed", advisory{title: "  Leading spaces  "}, "Leading spaces"},
-		{"no_wpsec_special_handling", advisory{id: "WPSECADV/WF/001", title: "Plugin Name - Missing Auth"}, "Plugin Name - Missing Auth"},
+		{
+			"no_wpsec_special_handling",
+			advisory{id: "WPSECADV/WF/001", title: "Plugin Name - Missing Auth"},
+			"Plugin Name - Missing Auth",
+		},
 	}
 
 	for _, tt := range tests {
@@ -378,7 +410,13 @@ func TestAdvisory_Message(t *testing.T) {
 		},
 		{
 			"ghsa_source",
-			advisory{packageName: "vendor/pkg", affectedVersions: "1.0", id: "ADV-001", cve: "", sources: []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}}},
+			advisory{
+				packageName:      "vendor/pkg",
+				affectedVersions: "1.0",
+				id:               "ADV-001",
+				cve:              "",
+				sources:          []advisorySource{{remoteID: "GHSA-2345-6789-cfrv"}},
+			},
 			"Package vendor/pkg (1.0) is vulnerable to GHSA-2345-6789-cfrv",
 		},
 		{
@@ -641,7 +679,11 @@ func TestRawAdvisories_UnmarshalJSON(t *testing.T) {
 		{
 			"object_with_single_advisory",
 			`{"vendor/pkg":[{"advisoryId":"ADV-001","packageName":"vendor/pkg","affectedVersions":">=1.0"}]}`,
-			rawAdvisories{"vendor/pkg": {{AdvisoryID: new("ADV-001"), PackageName: new("vendor/pkg"), AffectedVersions: new(">=1.0")}}},
+			rawAdvisories{
+				"vendor/pkg": {
+					{AdvisoryID: new("ADV-001"), PackageName: new("vendor/pkg"), AffectedVersions: new(">=1.0")},
+				},
+			},
 		},
 		{"object_multiple_packages", `{"a/b":[],"c/d":[]}`, rawAdvisories{"a/b": {}, "c/d": {}}},
 	}
@@ -755,7 +797,15 @@ func TestRawAdvisories_Normalize(t *testing.T) {
 					Severity:         new("high"),
 				}},
 			},
-			[]advisory{{id: "ADV-SEV", packageName: "x/y", affectedVersions: "<1.0", severity: severityHigh, sources: []advisorySource{}}},
+			[]advisory{
+				{
+					id:               "ADV-SEV",
+					packageName:      "x/y",
+					affectedVersions: "<1.0",
+					severity:         severityHigh,
+					sources:          []advisorySource{},
+				},
+			},
 		},
 		{
 			"advisory_with_source_included",
@@ -797,7 +847,12 @@ func TestRawAdvisories_Normalize(t *testing.T) {
 			if err != nil {
 				t.Fatalf("normalize() unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(advisory{}, advisorySource{}), cmpopts.SortSlices(func(a, b advisory) bool { return a.id < b.id })); diff != "" {
+			if diff := cmp.Diff(
+				tt.want,
+				got,
+				cmp.AllowUnexported(advisory{}, advisorySource{}),
+				cmpopts.SortSlices(func(a, b advisory) bool { return a.id < b.id }),
+			); diff != "" {
 				t.Errorf("normalize() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -1405,9 +1460,18 @@ func TestNewAudit_Error(t *testing.T) {
 	}{
 		{"empty_input", ``},
 		{"invalid_json", `not json`},
-		{"advisory_missing_id", `{"advisories":{"a/b":[{"packageName":"a/b","affectedVersions":"<1.0"}]},"ignored-advisories":{},"abandoned":{}}`},
-		{"advisory_missing_package", `{"advisories":{"a/b":[{"advisoryId":"ADV","affectedVersions":"<1.0"}]},"ignored-advisories":{},"abandoned":{}}`},
-		{"advisory_missing_affected_versions", `{"advisories":{"a/b":[{"advisoryId":"ADV","packageName":"a/b"}]},"ignored-advisories":{},"abandoned":{}}`},
+		{
+			"advisory_missing_id",
+			`{"advisories":{"a/b":[{"packageName":"a/b","affectedVersions":"<1.0"}]},"ignored-advisories":{},"abandoned":{}}`,
+		},
+		{
+			"advisory_missing_package",
+			`{"advisories":{"a/b":[{"advisoryId":"ADV","affectedVersions":"<1.0"}]},"ignored-advisories":{},"abandoned":{}}`,
+		},
+		{
+			"advisory_missing_affected_versions",
+			`{"advisories":{"a/b":[{"advisoryId":"ADV","packageName":"a/b"}]},"ignored-advisories":{},"abandoned":{}}`,
+		},
 		{"advisories_non_empty_array", `{"advisories":["x"],"ignored-advisories":{},"abandoned":{}}`},
 		{"ignored_advisories_non_empty_array", `{"advisories":{},"ignored-advisories":["x"],"abandoned":{}}`},
 		{"abandoned_non_empty_array", `{"advisories":{},"ignored-advisories":{},"abandoned":["x"]}`},

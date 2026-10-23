@@ -44,7 +44,11 @@ func NewReport(auditJSON, composerLockJSON io.Reader, rootURI, lockURI string) (
 	return report, nil
 }
 
-func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func build(
+	aud audit,
+	regs regions,
+	aLoc *sarif.ArtifactLocation,
+) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(aud.advisories)+1)
 	results := make([]*sarif.Result, 0, len(aud.advisories)+len(aud.abandonments))
 
@@ -67,7 +71,11 @@ func build(aud audit, regs regions, aLoc *sarif.ArtifactLocation) ([]*sarif.Repo
 	return rules, results, nil
 }
 
-func advisoryFindings(regions regions, aLoc *sarif.ArtifactLocation, advisories ...advisory) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func advisoryFindings(
+	regions regions,
+	aLoc *sarif.ArtifactLocation,
+	advisories ...advisory,
+) ([]*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	rules := make([]*sarif.ReportingDescriptor, 0, len(advisories))
 	results := make([]*sarif.Result, 0, len(advisories))
 
@@ -126,7 +134,11 @@ func newLocation(region region, aLoc *sarif.ArtifactLocation) *sarif.Location {
 	return sarif.NewLocationWithPhysicalLocation(l)
 }
 
-func abandonedFindings(regions regions, aLoc *sarif.ArtifactLocation, abandonments []abandonment) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
+func abandonedFindings(
+	regions regions,
+	aLoc *sarif.ArtifactLocation,
+	abandonments []abandonment,
+) (*sarif.ReportingDescriptor, []*sarif.Result, error) {
 	pb := sarif.NewPropertyBag().
 		AddTag("dependency").
 		Add("precision", "very-high")

@@ -2,6 +2,7 @@ package comsarif
 
 import (
 	"fmt"
+	"strconv"
 	"unicode/utf16"
 )
 
@@ -64,7 +65,7 @@ func (h *hasher) flush() {
 }
 
 func (h *hasher) outputHash() {
-	hashValue := fmt.Sprintf("%x", h.hashRaw)
+	hashValue := strconv.FormatUint(h.hashRaw, 16)
 	h.hashCounts[hashValue]++
 	h.lineHashes[h.lineNumbers[h.index]] = fmt.Sprintf("%s:%d", hashValue, h.hashCounts[hashValue])
 	h.lineNumbers[h.index] = -1

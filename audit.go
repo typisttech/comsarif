@@ -21,7 +21,7 @@ func newAudit(r io.Reader) (audit, error) {
 	if err != nil {
 		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
 	}
-	if err := json.Unmarshal(b, &raw); err != nil {
+	if err = json.Unmarshal(b, &raw); err != nil {
 		return audit{}, fmt.Errorf("parse audit JSON: %v", err)
 	}
 

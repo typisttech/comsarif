@@ -84,12 +84,36 @@ func TestNewLocation(t *testing.T) {
 		{"basic_region", region{line: 10, startColumn: 5, endColumn: 20, hash: "dummy"}, new(10), new(5), new(20)},
 		{"line_1", region{line: 1, startColumn: 1, endColumn: 10, hash: "dummy"}, new(1), new(1), new(10)},
 		{"zero_values", region{line: 0, startColumn: 0, endColumn: 0, hash: "dummy"}, new(0), new(0), new(0)},
-		{"large_line_number", region{line: 9999, startColumn: 3, endColumn: 50, hash: "dummy"}, new(9999), new(3), new(50)},
-		{"start_equals_end_column", region{line: 5, startColumn: 7, endColumn: 7, hash: "dummy"}, new(5), new(7), new(7)},
-		{"end_column_less_than_start", region{line: 2, startColumn: 15, endColumn: 3, hash: "dummy"}, new(2), new(15), new(3)},
+		{
+			"large_line_number",
+			region{line: 9999, startColumn: 3, endColumn: 50, hash: "dummy"},
+			new(9999),
+			new(3),
+			new(50),
+		},
+		{
+			"start_equals_end_column",
+			region{line: 5, startColumn: 7, endColumn: 7, hash: "dummy"},
+			new(5),
+			new(7),
+			new(7),
+		},
+		{
+			"end_column_less_than_start",
+			region{line: 2, startColumn: 15, endColumn: 3, hash: "dummy"},
+			new(2),
+			new(15),
+			new(3),
+		},
 		{"single_char_region", region{line: 3, startColumn: 1, endColumn: 2, hash: "dummy"}, new(3), new(1), new(2)},
 		{"line_100", region{line: 100, startColumn: 10, endColumn: 40, hash: "dummy"}, new(100), new(10), new(40)},
-		{"wide_column_range", region{line: 50, startColumn: 1, endColumn: 1000, hash: "dummy"}, new(50), new(1), new(1000)},
+		{
+			"wide_column_range",
+			region{line: 50, startColumn: 1, endColumn: 1000, hash: "dummy"},
+			new(50),
+			new(1),
+			new(1000),
+		},
 		{"all_ones", region{line: 1, startColumn: 1, endColumn: 1, hash: "dummy"}, new(1), new(1), new(1)},
 	}
 
@@ -309,7 +333,12 @@ func TestAbandonedFindings(t *testing.T) {
 		wantErr      bool
 	}{
 		{"no_abandonments", nil, 0, false},
-		{"single_abandonment_with_replacement", []abandonment{{packageName: "vendor/old", replacement: "vendor/new"}}, 1, false},
+		{
+			"single_abandonment_with_replacement",
+			[]abandonment{{packageName: "vendor/old", replacement: "vendor/new"}},
+			1,
+			false,
+		},
 		{"single_abandonment_no_replacement", []abandonment{{packageName: "vendor/old", replacement: ""}}, 1, false},
 		{
 			"two_abandonments",
@@ -337,7 +366,12 @@ func TestAbandonedFindings(t *testing.T) {
 			},
 			0, true,
 		},
-		{"abandonment_with_long_replacement", []abandonment{{packageName: "vendor/old", replacement: strings.Repeat("r", 200)}}, 1, false},
+		{
+			"abandonment_with_long_replacement",
+			[]abandonment{{packageName: "vendor/old", replacement: strings.Repeat("r", 200)}},
+			1,
+			false,
+		},
 		{
 			"two_replacements_provided",
 			[]abandonment{
@@ -599,15 +633,32 @@ func TestNewReport(t *testing.T) {
 	}{
 		{"empty_audit_and_lock", validAuditEmpty, validComposerLock, "/path/to/root", "composer.lock", false},
 		{"audit_with_advisory", validAuditWithAdvisory, validComposerLock, "/path/to/root", "composer.lock", false},
-		{"audit_with_abandonment", validAuditWithAbandonment, validComposerLock, "/path/to/root", "composer.lock", false},
-		{"audit_with_both_advisory_and_abandonment", validAuditBoth, validComposerLock, "/path/to/root", "composer.lock", false},
+		{
+			"audit_with_abandonment",
+			validAuditWithAbandonment,
+			validComposerLock,
+			"/path/to/root",
+			"composer.lock",
+			false,
+		},
+		{
+			"audit_with_both_advisory_and_abandonment",
+			validAuditBoth,
+			validComposerLock,
+			"/path/to/root",
+			"composer.lock",
+			false,
+		},
 		{"empty_rootURI_and_lockURI", validAuditEmpty, validComposerLock, "", "", false},
 		{"invalid_audit_JSON", `not json`, validComposerLock, "", "", true},
 		{"invalid_composer_lock_JSON", validAuditEmpty, `not json`, "", "", true},
 		{
 			"advisory_references_package_not_in_composer_lock",
 			`{"advisories":{"missing/pkg":[{"advisoryId":"ADV-001","packageName":"missing/pkg","affectedVersions":">=1.0"}]},"abandoned":[]}`,
-			validComposerLock, "", "", true,
+			validComposerLock,
+			"",
+			"",
+			true,
 		},
 		{
 			"abandonment_references_package_not_in_composer_lock",

@@ -122,7 +122,7 @@ func locatePackageRegion(decoder *jsontext.Decoder, data []byte, newlines []int)
 		}
 
 		if key != "name" {
-			if err := decoder.SkipValue(); err != nil {
+			if err = decoder.SkipValue(); err != nil {
 				return "", region{}, err
 			}
 			continue

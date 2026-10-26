@@ -6,7 +6,7 @@ toolchain go1.27.3
 
 require (
 	github.com/google/go-cmp v0.7.0
-	github.com/owenrumney/go-sarif/v3 v3.3.1
+	github.com/owenrumney/go-sarif/v3 v3.3.2
 	github.com/rogpeppe/go-internal v1.16.0
 )
 
